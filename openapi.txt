@@ -1,0 +1,131 @@
+
+
+curl -X GET "https://test.company.openapi.com/WW-start/DE/DE132490588" -H "accept: application/json" -H "Authorization: Bearer 6a38a7499562761b200a790d"
+
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "OpenAPI Sandbox Corporate Registry Gateway",
+    "description": "Proof of Concept specification for querying international business entity profiles and verification records.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://test.company.openapi.com",
+      "description": "Sandbox Testing Environment"
+    }
+  ],
+  "paths": {
+    "/WW-start/{countryCode}/{registrationNumber}": {
+      "get": {
+        "summary": "Retrieve Global Corporate Registry Profile",
+        "description": "Queries the global sandbox registry using a dual-vector lookup (ISO Country Code + National Registration Number) to return corporate tracking parameters and UBO details.",
+        "operationId": "query_openapi_registry",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "description": "The ISO 2-letter uppercase country code (e.g., DE, IT).",
+            "schema": {
+              "type": "string",
+              "example": "DE"
+            }
+          },
+          {
+            "name": "registrationNumber",
+            "in": "path",
+            "required": true,
+            "description": "The target business entity's registration string, tax code, or VAT number.",
+            "schema": {
+              "type": "string",
+              "example": "DE132490588"
+            }
+          },
+          {
+            "name": "accept",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "application/json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful registry match returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "companyName": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "vatCode": {
+                      "type": "string"
+                    },
+                    "businessStatus": {
+                      "type": "string"
+                    },
+                    "shareholdersInformation": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "companyName": {
+                            "type": "string"
+                          },
+                          "percentShare": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized. Bearer token is expired, missing, or malformed."
+          }
+        },
+        "security": [
+          {
+            "apiKeyHeader": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyHeader": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  }
+}
+
+-------------------------------
+connection
+
+key: Authorization
+value: Bearer 6a38a7499562761b200a790d
+---------------------------------
+
+here is the output from the document extractor. verify this information
+{
+"registrationNumber": "HRB 3868 (Fürth)",
+"legalName": "adidas AG",
+"documentTypeIdentified": "BUSINESS_REGISTRATION",
+"shareholders": []
+}
