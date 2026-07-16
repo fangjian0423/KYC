@@ -15,11 +15,13 @@ export async function createCase(
   countryCode: string,
   docType: DocType,
   file: File,
+  registrationNumber?: string,
 ): Promise<Case> {
   const form = new FormData();
   form.append('companyName', companyName);
   form.append('countryCode', countryCode);
   form.append('docType', docType);
+  if (registrationNumber) form.append('registrationNumber', registrationNumber);
   form.append('file', file);
   const { data } = await api.post<Case>('/api/cases', form, {
     headers: { 'Content-Type': 'multipart/form-data' },

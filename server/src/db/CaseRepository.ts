@@ -13,6 +13,7 @@ export class CaseRepository {
     companyName: string,
     countryCode: string,
     documents: CaseDocument[],
+    registrationNumber?: string,
   ): Promise<Case> {
     const container = await getContainer();
     const now = new Date().toISOString();
@@ -22,6 +23,7 @@ export class CaseRepository {
       status: 'SUBMITTED',
       companyName,
       countryCode,
+      registrationNumber,
       createdAt: now,
       updatedAt: now,
       documents,

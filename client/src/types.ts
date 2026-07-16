@@ -49,6 +49,8 @@ export interface Case {
   status: CaseStatus;
   companyName: string;
   countryCode: string;
+  /** Analyst-supplied VAT / national registration number used to query the registry. */
+  registrationNumber?: string;
   createdAt: string;
   updatedAt: string;
   documents: CaseDocument[];

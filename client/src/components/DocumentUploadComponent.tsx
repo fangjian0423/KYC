@@ -13,6 +13,7 @@ interface Props {
 export function DocumentUploadComponent({ caseId, onCaseCreated, onVerified }: Props) {
   const [companyName, setCompanyName] = useState('');
   const [countryCode, setCountryCode] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState('');
   const [docType, setDocType] = useState<DocType>('PASSPORT');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export function DocumentUploadComponent({ caseId, onCaseCreated, onVerified }: P
 
     setLoading(true);
     try {
-      const created = await createCase(companyName, countryCode, docType, file);
+      const created = await createCase(companyName, countryCode, docType, file, registrationNumber);
       onCaseCreated(created);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create case.');
@@ -109,6 +110,23 @@ export function DocumentUploadComponent({ caseId, onCaseCreated, onVerified }: P
             placeholder="GB"
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
+        </div>
+
+        {/* VAT / Registration Number */}
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            VAT / Registration Number
+          </label>
+          <input
+            type="text"
+            value={registrationNumber}
+            onChange={(e) => setRegistrationNumber(e.target.value)}
+            placeholder="e.g. DE132490588"
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Used to query the corporate registry. Sandbox example: DE132490588 (adidas AG).
+          </p>
         </div>
 
         {/* Document Type Selector */}

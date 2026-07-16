@@ -1,9 +1,14 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import casesRouter from './routes/cases';
 
 dotenv.config();
+
+// Initialise platform tracing before anything else so agent + HTTP spans are captured.
+import { initTracing } from './foundry/tracing';
+initTracing();
+
+import casesRouter from './routes/cases';
 
 const app = express();
 const PORT = process.env.PORT ?? 5000;

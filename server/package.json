@@ -6,16 +6,23 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "provision": "ts-node-dev --transpile-only src/foundry/provision.ts",
+    "smoke": "ts-node-dev --transpile-only src/foundry/smokeTest.ts"
   },
   "dependencies": {
+    "@azure/ai-projects": "^2.3.0",
+    "@azure/core-tracing": "^1.3.2-alpha.20260311.2",
     "@azure/cosmos": "^4.2.0",
     "@azure/identity": "^4.13.1",
+    "@azure/monitor-opentelemetry": "^1.18.2",
+    "@opentelemetry/api": "^1.9.1",
     "better-sqlite3": "^12.11.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "multer": "^2.2.0",
+    "openai": "^6.45.0",
     "uuid": "^11.1.1"
   },
   "devDependencies": {

@@ -11,6 +11,7 @@ export class MockCaseRepository {
     companyName: string,
     countryCode: string,
     documents: CaseDocument[],
+    registrationNumber?: string,
   ): Promise<Case> {
     const now = new Date().toISOString();
     const newCase: Case = {
@@ -18,6 +19,7 @@ export class MockCaseRepository {
       status: 'SUBMITTED',
       companyName,
       countryCode,
+      registrationNumber,
       createdAt: now,
       updatedAt: now,
       documents,

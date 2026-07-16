@@ -3,6 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { getRepository } from '../db/repositoryFactory';
+import { isFoundryEnabled } from '../foundry/client';
+import { runVerification } from '../foundry/orchestrator';
 import type { CaseDocument, DocType } from '../types';
 
 const router = Router();
@@ -10,11 +12,20 @@ const router = Router();
 // Store uploads in memory — no disk dependency for PoC
 const upload = multer({ storage: multer.memoryStorage() });
 
+/** Remove heavy base64 image data from documents before sending a case to the client. */
+function stripImages<T extends { documents?: CaseDocument[] }>(c: T): T {
+  if (!c.documents) return c;
+  return {
+    ...c,
+    documents: c.documents.map(({ imageDataUrl: _omit, ...rest }) => rest),
+  };
+}
+
 // ── GET /api/cases ───────────────────────────────────────────────────────────
 router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const cases = await getRepository().getActiveCases();
-    res.json(cases);
+    res.json(cases.map(stripImages));
   } catch (err) {
     next(err);
   }
@@ -24,7 +35,7 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const c = await getRepository().getCaseById(req.params.id);
-    res.json(c);
+    res.json(stripImages(c));
   } catch (err) {
     next(err);
   }
@@ -33,10 +44,11 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // ── POST /api/cases ──────────────────────────────────────────────────────────
 router.post('/', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { companyName, countryCode, docType } = req.body as {
+    const { companyName, countryCode, docType, registrationNumber } = req.body as {
       companyName: string;
       countryCode: string;
       docType: DocType;
+      registrationNumber?: string;
     };
 
     if (!companyName || !countryCode || !docType) {
@@ -45,16 +57,34 @@ router.post('/', upload.single('file'), async (req: Request, res: Response, next
     }
 
     const file = req.file;
+    const looksLikeImage =
+      !!file &&
+      (file.mimetype?.startsWith('image/') ||
+        /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.originalname ?? ''));
+    const mime =
+      file?.mimetype && file.mimetype.startsWith('image/')
+        ? file.mimetype
+        : `image/${(path.extname(file?.originalname ?? '').slice(1) || 'png').toLowerCase()}`;
+    const imageDataUrl =
+      file && looksLikeImage
+        ? `data:${mime};base64,${file.buffer.toString('base64')}`
+        : undefined;
     const doc: CaseDocument = {
       docId: uuidv4(),
       fileName: file?.originalname ?? 'unknown',
       docType,
       // In a real deployment this would be an Azure Blob Storage URL
       blobUrl: file ? `local://${file.originalname}` : 'local://no-file',
+      imageDataUrl,
     };
 
-    const newCase = await getRepository().createCase(companyName, countryCode, [doc]);
-    res.status(201).json(newCase);
+    const newCase = await getRepository().createCase(
+      companyName,
+      countryCode,
+      [doc],
+      registrationNumber?.trim() || undefined,
+    );
+    res.status(201).json(stripImages(newCase));
   } catch (err) {
     next(err);
   }
@@ -66,9 +96,10 @@ router.post('/:id/verify', async (req: Request, res: Response, next: NextFunctio
     const repo = getRepository();
     const existing = await repo.getCaseById(req.params.id);
 
-    if (process.env.FOUNDRY_PROJECT_ENDPOINT) {
-      // Real Foundry pipeline — to be wired per foundry-router.md
-      res.status(501).json({ error: 'Foundry pipeline not yet wired — set FOUNDRY_PROJECT_ENDPOINT.' });
+    if (isFoundryEnabled()) {
+      // ── Real Foundry multi-agent pipeline ────────────────────────────────
+      const { case: verified, traceId } = await runVerification(existing.id);
+      res.json({ ...stripImages(verified), traceId });
       return;
     }
 
