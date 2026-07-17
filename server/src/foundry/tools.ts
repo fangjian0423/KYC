@@ -1,64 +1,19 @@
-import fs from 'fs';
-import path from 'path';
 import { foundryConfig } from './client';
 
 /**
- * The corporate-registry tool, in two forms:
- *   • an **OpenAPI tool / toolbox tool** — used to package the API spec into the
- *     governed Toolbox (discovery & governance story), and
- *   • a **function tool** — attached to the UBO agent for *execution*, so our own
- *     code runs the HTTP call and manages the openapi.it API-key → token exchange
- *     and refresh transparently (see registryClient.ts).
+ * The corporate-registry tool, exposed to the UBO agent as a **function tool**.
  *
- * We use a function tool for execution because the Foundry OpenAPI tool auth only
- * supports anonymous / project_connection / managed_identity — none of which can
- * perform the API-key→short-lived-token exchange this registry requires. Routing
+ * When the agent decides to look up a company, the Responses API emits a
+ * `function_call`, which our orchestrator executes via
+ * registryClient.queryRegistry() — our code runs the HTTP call and manages the
+ * openapi.it API-key → short-lived-token exchange and refresh transparently.
+ *
+ * We use a function tool (not the Foundry OpenAPI tool) because the OpenAPI tool's
+ * auth only supports anonymous / project_connection / managed_identity — none of
+ * which can perform the API-key→token exchange this registry requires. Routing
  * execution through our code keeps auth fully automatic (no manual token rotation).
  */
 export const REGISTRY_TOOL_NAME = 'query_openapi_registry';
-
-let cachedSpec: unknown;
-
-function loadRegistrySpec(): unknown {
-  if (!cachedSpec) {
-    const specPath = path.resolve(__dirname, 'assets', 'registry_openapi.json');
-    cachedSpec = JSON.parse(fs.readFileSync(specPath, 'utf-8'));
-  }
-  return cachedSpec;
-}
-
-function buildAuth() {
-  const connectionId = process.env.REGISTRY_CONNECTION_ID;
-  if (connectionId) {
-    return {
-      type: 'project_connection' as const,
-      security_scheme: { project_connection_id: connectionId },
-    };
-  }
-  return { type: 'anonymous' as const };
-}
-
-/** OpenApiFunctionDefinition for the corporate registry — used inline and inside the toolbox. */
-export function registryOpenApiFunction() {
-  return {
-    name: REGISTRY_TOOL_NAME,
-    description:
-      'Look up an international corporate entity in the global registry by ISO country code and ' +
-      'registration/tax/VAT number. Returns business status and UBO shareholder percentages.',
-    spec: loadRegistrySpec(),
-    auth: buildAuth(),
-  };
-}
-
-/** The registry tool as an inline agent tool (`tools: [...]`). */
-export function registryOpenApiTool() {
-  return { type: 'openapi' as const, openapi: registryOpenApiFunction() };
-}
-
-/** The registry tool packaged as a toolbox tool (`ToolboxToolUnion`). */
-export function registryToolboxTool() {
-  return { type: 'openapi' as const, openapi: registryOpenApiFunction() };
-}
 
 /**
  * The registry as a **function tool** for the UBO agent. When the agent decides to

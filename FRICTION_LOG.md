@@ -5,8 +5,7 @@ back-office tool that extracts data from corporate onboarding documents, verifie
 ownership against a corporate registry, and flags discrepancies for a compliance
 analyst.
 
-**Platform features exercised (3):** Toolboxes · Tracing · Routines
-(plus Prompt Agents as the agent-authoring model).
+**Platform features used (3):** Prompt agents · Tracing · Routines.
 
 **SDK:** `@azure/ai-projects@2.3.0` (Node.js / TypeScript), auth via
 `DefaultAzureCredential` (`az login`). Model deployment: `gpt-5.4`.
@@ -25,7 +24,6 @@ POST /api/cases/:id/verify
         └─ Comparison  prompt agent            [span: kyc.comparison]
 
 Provisioning (npm run provision):
-   • toolboxes.createVersion("kyc-registry-toolbox", [openapi tool], {metadata,…})
    • agents.createVersion x3 (extraction / ubo / comparison)
    • beta.routines.createOrUpdate("kyc-perpetual-review", schedule→invoke ubo)
 
@@ -33,50 +31,12 @@ Scheduled watchdog (Routine): weekly cron → re-invoke UBO agent (perpetual KYC
 ```
 
 Each step is a self-contained agent run; our OpenTelemetry spans wrap them into one
-trace. The registry Toolbox packages the API spec for governance/discovery, while
-execution flows through a function tool so our code can manage the registry's
-API-key→token exchange automatically.
+trace. The registry is exposed to the UBO agent as a **function tool** so our code can
+manage the registry's API-key→token exchange automatically.
 
 ---
 
-## Feature 1 — Toolboxes
-
-**What we did:** Packaged the corporate-registry OpenAPI endpoint into a curated,
-versioned `kyc-registry-toolbox` via `project.toolboxes.createVersion(name, tools, {
-description, metadata, policies })`, carrying governance metadata
-(`domain`, `owner`, `dataClassification`). Exercised discovery with
-`toolboxes.list()` / `getVersion()`.
-
-### What worked
-- `createVersion` is genuinely idempotent-friendly: it **provisions the toolbox if
-  it doesn't exist** and otherwise adds a new version — so the same provisioning
-  script is safe to re-run. Great DX.
-- Versioning is first-class: every `createVersion` returns a `ToolboxVersionObject`
-  with an incrementing `version`, and `list()` surfaces `default_version`. This maps
-  cleanly onto "curated, governed tool collection".
-- Attaching the same `OpenApiFunctionDefinition` to both the toolbox and the agent
-  worked without redefinition (shared factory in `tools.ts`).
-
-### What was confusing
-- **Toolboxes and agents feel disconnected.** There is **no way to attach a toolbox
-  to an agent** in the agent definition — `PromptAgentDefinition` only accepts
-  `tools: ToolUnion[]`, not a toolbox reference. So a toolbox today is a *catalog /
-  governance* construct, not something the agent runtime consumes directly. We had
-  to duplicate the tool: once in the toolbox (for governance) and once inline on the
-  UBO agent (for execution). We expected `tools: [{ type: "toolbox", name: "…" }]`
-  or similar.
-- The `policies` parameter (`ToolboxPolicies`) is typed but under-documented — it
-  was unclear what policy shapes are enforced vs. advisory, so we left it minimal.
-- No `foundryFeatures` opt-in flag is required for toolboxes (unlike routines),
-  which was pleasant but inconsistent with the other preview surfaces.
-
-### What blocked us
-- Nothing hard-blocked. The main limitation is the missing agent↔toolbox binding,
-  which weakens the "governance actually gates what the agent can call" story.
-
----
-
-## Feature 2 — Tracing / Observability
+## Feature 1 — Tracing / Observability
 
 **What we did:** Wrapped the orchestration in OpenTelemetry spans
 (`kyc.verify` → `kyc.extraction` / `kyc.ubo_registry` / `kyc.comparison`) via a
@@ -110,7 +70,7 @@ small `withSpan()` helper, initialised Azure Monitor with `useAzureMonitor()` wh
 
 ---
 
-## Feature 3 — Routines
+## Feature 2 — Routines
 
 **What we did:** Created `kyc-perpetual-review` via
 `project.beta.routines.createOrUpdate(name, { foundryFeatures: "Routines=V1Preview",
@@ -135,7 +95,7 @@ ownership changes, with no always-on server.
   shape — the key (`"weeklyReview"`) is arbitrary and its purpose is unclear.
 - The **`foundryFeatures: "Routines=V1Preview"` opt-in must be passed on *every*
   routine call** (create, list, get, enable…). Forgetting it on `list()` is an easy
-  trap. Toolboxes need no such flag, so the inconsistency surprised us.
+  trap.
 - `InvokeAgentResponsesApiRoutineAction` has both `agent_name` and
   `agent_endpoint_id` (and `input` is `any`) — it wasn't obvious which to use for a
   prompt agent vs. a hosted agent, or how the routine's output is surfaced/stored.
@@ -144,6 +104,40 @@ ownership changes, with no always-on server.
 - We could not fully validate the *actual scheduled firing* within the hackathon
   window (weekly cron); we exercised the definition + `list` + could `dispatch` to
   test-fire, but end-to-end "it ran on schedule and reported" needs a longer horizon.
+
+---
+
+## Design decision — Workflow agents (evaluated, not adopted)
+
+**What we did:** We evaluated moving the three-step orchestration off our code and onto
+the platform as a **Workflow agent** (`kind: "workflow"`, `foundryFeatures:
+"WorkflowAgents=V1Preview"`), where the workflow is a CSDL YAML document. We chose to
+**keep the code-based orchestrator** and documented why.
+
+### What blocked / limited us
+- **A platform workflow cannot execute our own code.** Our registry step needs a live
+  credential exchange (openapi.it API key → short-lived Bearer token, cached and
+  auto-refreshed in `registryClient.ts`). Because a Workflow agent runs entirely on the
+  platform, there is no place in the workflow to run that token-management logic. The
+  only in-workflow options are the built-in tool auth types (`anonymous`,
+  `project_connection`, `managed_identity`) — none of which perform a token exchange —
+  so a pure workflow would force a **static token stored in a connection that expires
+  and must be rotated manually**. This is the same root limitation as the OpenAPI-tool
+  auth gap below: **the platform has no first-class way to run user code for dynamic
+  tool auth / custom step logic.**
+- To keep a workflow *and* smart token management, we would have to expose the registry
+  behind our own endpoint (or MCP) that the workflow calls — i.e. we still self-host
+  code, so the workflow doesn't actually eliminate the backend.
+- Secondary friction: the **four agent kinds (`prompt` / `hosted` / `workflow` /
+  `external`)** and how a workflow relates to prompt agents / hosted endpoints was not
+  obvious up front; it took reading the SDK models to understand what each kind hosts.
+
+### Decision
+We kept the **code orchestrator** (Extraction → UBO function-tool → Comparison), which
+lets our code own credential management, per-step persistence, JSON parsing, and
+graceful degradation. Platform ask: allow a workflow step to invoke **user-hosted /
+function logic** (or support token-exchange auth on tools) so custom auth and glue code
+can live alongside a declarative workflow.
 
 ---
 
@@ -179,9 +173,9 @@ ownership changes, with no always-on server.
 
 ## Net take
 
-Standing up **three real prompt agents + a governed toolbox + a scheduled routine +
-end-to-end tracing** on the platform took well under a day with the TypeScript SDK,
-and the idempotent `createVersion` / `createOrUpdate` provisioning story is excellent.
-The biggest rough edges were **stale published samples**, the **missing agent↔toolbox
-binding**, and **OpenAPI tool auth not supporting token-exchange flows** — each cost
-real debugging time and are the highest-leverage fixes for the platform.
+Standing up **three real prompt agents + a scheduled routine + end-to-end tracing** on
+the platform took well under a day with the TypeScript SDK, and the idempotent
+`createVersion` / `createOrUpdate` provisioning story is excellent. The biggest rough
+edges were **stale published samples**, **OpenAPI tool auth not supporting
+token-exchange flows**, and **workflows being unable to run user code** — each cost real
+debugging time and are the highest-leverage fixes for the platform.

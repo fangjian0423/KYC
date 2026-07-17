@@ -14,17 +14,17 @@ feature-specific platform feedback.
 
 ## What actually runs where
 
-The three verification agents, the toolbox, and the routine **already live on the
-Foundry platform** (created via `npm run provision`). What runs locally is our
-**orchestration backend + React frontend**, which call those Foundry agents.
+The three verification agents and the routine **already live on the Foundry platform**
+(created via `npm run provision`). What runs locally is our **orchestration backend +
+React frontend**, which call those Foundry agents.
 
 ```
 ┌─ Local / self-hosted ───────────────┐      ┌─ Microsoft Foundry platform ──────┐
 │  React frontend (Vite)              │      │  kyc-extraction-agent (vision)    │
 │  Express backend                    │      │  kyc-ubo-registry-agent (+tool)   │
 │   • orchestration (3-step pipeline) │──────▶  kyc-comparison-agent             │
-│   • registry token auto-management  │      │  kyc-registry-toolbox             │
-│   • case persistence (SQLite/Cosmos)│      │  kyc-perpetual-review (routine)   │
+│   • registry token auto-management  │      │  kyc-perpetual-review (routine)   │
+│   • case persistence (SQLite/Cosmos)│      │                                   │
 └──────────────────────────────────────┘      └───────────────────────────────────┘
 ```
 
@@ -52,9 +52,11 @@ VERIFIED | DISCREPANCY_FOUND`.
 | Feature | How we use it | Status |
 | --- | --- | --- |
 | **Prompt agents** | 3 declarative agents (extraction / UBO / comparison) via `agents.createVersion` | ✅ working |
-| **Toolboxes** | `kyc-registry-toolbox` packages the registry OpenAPI spec with governance metadata | ✅ working |
 | **Tracing** | OpenTelemetry spans around every step; exports to App Insights when configured | ✅ code ready · ⚠️ App Insights not yet connected |
 | **Routines** | `kyc-perpetual-review` — weekly cron re-verifies entities (perpetual KYC watchdog) | ✅ working |
+
+> We also evaluated **Toolboxes** and removed it (catalog-only at our scale, no
+> agent↔toolbox binding) — see `FRICTION_LOG.md`.
 
 ---
 
@@ -70,8 +72,7 @@ server/
     foundry/
       client.ts         AIProjectClient (DefaultAzureCredential)
       agents.ts         3 prompt-agent definitions
-      tools.ts          registry tool (OpenAPI form for toolbox, function form for agent)
-      toolbox.ts        registry Toolbox provisioning
+      tools.ts          registry function tool (for the UBO agent)
       routines.ts       perpetual-KYC routine provisioning
       registryClient.ts registry client + automatic API-key→token exchange/refresh
       orchestrator.ts   the 3-step verify pipeline
@@ -129,7 +130,7 @@ Frontend (`client/.env.local`): `VITE_BACKEND_API_URL=http://127.0.0.1:5000`
 cd server && npm install
 cd ../client && npm install
 
-# 2. Provision Foundry resources (agents, toolbox, routine) — idempotent
+# 2. Provision Foundry resources (agents, routine) — idempotent
 cd ../server && npm run provision
 
 # 3. Smoke-test connectivity (optional)
@@ -174,7 +175,7 @@ VAT / registration numbers that return real sandbox data:
 - ✅ Multimodal (vision) extraction — the uploaded document genuinely drives the result
 - ✅ UBO agent calls the registry via a function tool; **live** sandbox data returned
 - ✅ Automatic registry token exchange / caching / refresh (no manual rotation)
-- ✅ Toolbox + Routine provisioned on the platform
+- ✅ Routine provisioned on the platform (perpetual-KYC watchdog)
 - ✅ Tracing spans in code; `traceId` returned from `/verify`
 - ✅ Graceful degradation when the registry is unavailable (`UNAVAILABLE` + WARNING)
 
