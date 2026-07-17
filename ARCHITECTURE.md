@@ -165,7 +165,7 @@ orchestrator.runVerification(caseId)              [trace: kyc.verify]
 
 > The following are currently **missing or unverified**, for team planning.
 
-### 7.1 Deployment (not started)
+### 7.1 Deployment (not started) (Zhihao) - ACA
 - [ ] **Containerize the backend**: `server/` currently has **no Dockerfile** (the
       frontend already has one).
 - [ ] **Deploy to Azure Container Apps**: backend + frontend on ACA. The frontend's
@@ -176,13 +176,13 @@ orchestrator.runVerification(caseId)              [trace: kyc.verify]
 - [ ] **Secrets management**: `REGISTRY_API_KEY` / `REGISTRY_EMAIL` etc. as ACA secrets
       or in Key Vault.
 
-### 7.2 Observability (partly done)
+### 7.2 Observability (partly done) (Zhihao)
 - [x] In-code OpenTelemetry spans (kyc.verify / extraction / ubo_registry / comparison).
 - [ ] **Connect Application Insights**: set `APPLICATIONINSIGHTS_CONNECTION_STRING` (or
       connect App Insights to the project in the portal) so traces are visible and
       demoable.
 
-### 7.3 Data & persistence
+### 7.3 Data & persistence(Zhihao) - cosmos
 - [ ] **Finalize the database choice**: the demo uses the in-memory mock (cleared on
       restart); `better-sqlite3` has no prebuilt binary on Node v26; production should use
       **Cosmos DB** (already supported — just set the connection string).
@@ -190,12 +190,16 @@ orchestrator.runVerification(caseId)              [trace: kyc.verify]
       blobUrl; production should store to **Azure Blob Storage** and pass the blob
       reference to the vision step.
 
-### 7.4 Business logic
-- [ ] **Source of the VAT / registration number**: currently entered by the analyst and
-      used for the registry lookup; optionally switch to using the number **extracted by
-      Agent A** from the document, for a fully document-driven flow.
+### 7.4 Business logic (optional)
 - [ ] **Multi-document / deep ownership**: only the first document is processed today; no
       multi-document aggregation or layered shareholder drill-down.
+
+### 7.5 UBO Registry Abstraction (Sean)
+
+- openapi
+- a
+- b
+
 
 ---
 
