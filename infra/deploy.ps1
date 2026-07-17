@@ -34,24 +34,41 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $acrName = ($NamePrefix + 'acr' + ((Get-Random -Maximum 99999).ToString())).ToLower()
 
+# az failures are non-terminating in PowerShell; check $LASTEXITCODE and abort.
+function Assert-LastExit([string]$What) {
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "xx Failed: $What (exit $LASTEXITCODE). Aborting." -ForegroundColor Red
+        if ($What -like '*subscription*' -or $What -like '*resource group*') {
+            Write-Host "   If this is an auth error, run: az login --tenant 72f988bf-86f1-41af-91ab-2d7cd011db47" -ForegroundColor Yellow
+        }
+        exit 1
+    }
+}
+
 Write-Host "==> Selecting subscription $Subscription" -ForegroundColor Cyan
-az account set --subscription $Subscription | Out-Null
+az account set --subscription $Subscription
+Assert-LastExit 'set subscription'
 
 Write-Host "==> Resource group $ResourceGroup ($Location)" -ForegroundColor Cyan
 az group create -n $ResourceGroup -l $Location | Out-Null
+Assert-LastExit 'create resource group'
 
 Write-Host "==> Azure Container Registry $acrName" -ForegroundColor Cyan
 az acr create -g $ResourceGroup -n $acrName --sku Basic --admin-enabled true | Out-Null
+Assert-LastExit 'create ACR'
 $loginServer = az acr show -g $ResourceGroup -n $acrName --query loginServer -o tsv
+Assert-LastExit 'read ACR login server'
 
 $backendImage = "$loginServer/kyc-backend:latest"
 $frontendImage = "$loginServer/kyc-frontend:latest"
 
 Write-Host "==> Building backend image (ACR build)" -ForegroundColor Cyan
-az acr build -r $acrName -t $backendImage "$root/server" | Out-Null
+az acr build -r $acrName -t $backendImage "$root/server"
+Assert-LastExit 'build backend image'
 
 Write-Host "==> Building frontend image (ACR build)" -ForegroundColor Cyan
-az acr build -r $acrName -t $frontendImage "$root/client" | Out-Null
+az acr build -r $acrName -t $frontendImage "$root/client"
+Assert-LastExit 'build frontend image'
 
 Write-Host "==> Deploying infrastructure (main.bicep)" -ForegroundColor Cyan
 $deployment = az deployment group create `
@@ -66,6 +83,7 @@ $deployment = az deployment group create `
     -p registryApiKey=$RegistryApiKey `
     -p registryEmail=$RegistryEmail `
     -o json | ConvertFrom-Json
+Assert-LastExit 'deploy infrastructure'
 
 $backendPrincipalId = $deployment.properties.outputs.backendPrincipalId.value
 $frontendUrl = $deployment.properties.outputs.frontendUrl.value
