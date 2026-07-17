@@ -104,6 +104,16 @@ if ($FoundryResourceId -and $backendPrincipalId) {
         --assignee-principal-type ServicePrincipal `
         --role "Azure AI Developer" `
         --scope $FoundryResourceId | Out-Null
+
+    # 'Cognitive Services User' grants the data-plane inference permission needed to
+    # actually run agents / call the model (Responses API). Required in addition to
+    # 'Azure AI Developer' when the AI Services account has local auth disabled.
+    Write-Host "==> Assigning 'Cognitive Services User' to backend identity on Foundry" -ForegroundColor Cyan
+    az role assignment create `
+        --assignee-object-id $backendPrincipalId `
+        --assignee-principal-type ServicePrincipal `
+        --role "Cognitive Services User" `
+        --scope $FoundryResourceId | Out-Null
 }
 else {
     Write-Host "!! FoundryResourceId not provided — skipping Foundry RBAC." -ForegroundColor Yellow

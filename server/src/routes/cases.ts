@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getRepository } from '../db/repositoryFactory';
 import { isFoundryEnabled } from '../foundry/client';
 import { runVerification } from '../foundry/orchestrator';
-import { isBlobConfigured, uploadDocumentImage } from '../storage/blobClient';
+import { isBlobConfigured, uploadDocumentImage, resolveImageDataUrl } from '../storage/blobClient';
 import type { CaseDocument, DocType } from '../types';
 
 const router = Router();
@@ -43,11 +43,13 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ── GET /api/cases/:id/document ───────────────────────────────────────────────
-// Streams the uploaded document image for the case (first document).
+// Streams the uploaded document image for the case (first document). Prefers an
+// inline base64 image (mock/local) and falls back to Blob Storage (production).
 router.get('/:id/document', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const c = await getRepository().getCaseById(req.params.id);
-    const dataUrl = c.documents[0]?.imageDataUrl;
+    const doc = c.documents[0];
+    const dataUrl = await resolveImageDataUrl(doc);
     const match = dataUrl?.match(/^data:(.+?);base64,(.*)$/);
     if (!match) {
       res.status(404).json({ error: 'No document image for this case.' });
