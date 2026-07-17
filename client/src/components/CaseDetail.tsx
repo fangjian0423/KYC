@@ -1,5 +1,5 @@
 import type { Case } from '../types';
-import { DocumentUploadComponent } from './DocumentUploadComponent';
+import { CaseSummaryPanel } from './CaseSummaryPanel';
 import { ExtractedDataCard, RegistryDataCard, IntelligencePanel } from './ResultPanels';
 import { StatusBadge } from './StatusBadge';
 
@@ -33,12 +33,8 @@ export function CaseDetail({ selectedCase, onBack, onUpdate }: Props) {
 
       {/* Three-column workspace */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Left: Upload */}
-        <DocumentUploadComponent
-          caseId={selectedCase.id}
-          onCaseCreated={onUpdate}
-          onVerified={onUpdate}
-        />
+        {/* Left: Case summary + verify */}
+        <CaseSummaryPanel caseData={selectedCase} onVerified={onUpdate} />
 
         {/* Center: Dual data cards */}
         <div className="flex flex-col gap-4">

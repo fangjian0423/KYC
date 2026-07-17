@@ -42,6 +42,25 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// ── GET /api/cases/:id/document ───────────────────────────────────────────────
+// Streams the uploaded document image for the case (first document).
+router.get('/:id/document', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const c = await getRepository().getCaseById(req.params.id);
+    const dataUrl = c.documents[0]?.imageDataUrl;
+    const match = dataUrl?.match(/^data:(.+?);base64,(.*)$/);
+    if (!match) {
+      res.status(404).json({ error: 'No document image for this case.' });
+      return;
+    }
+    const [, mime, b64] = match;
+    res.setHeader('Content-Type', mime);
+    res.send(Buffer.from(b64, 'base64'));
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── POST /api/cases ──────────────────────────────────────────────────────────
 router.post('/', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -156,12 +175,22 @@ router.post('/:id/verify', async (req: Request, res: Response, next: NextFunctio
         extractedValue: '40',
         registryValue: '35',
         severity: 'WARNING' as const,
+        description:
+          'The second shareholder\'s equity percentage differs between the document (40%) ' +
+          'and the registry (35%). A 5-point ownership gap warrants review but is not itself ' +
+          'a strong fraud signal.',
       },
     ];
     c = await repo.updateAgentState(
       c.id,
       'comparisonResults',
-      { matchScore: 82, discrepancies },
+      {
+        matchScore: 82,
+        summary:
+          'Entity identity matches the registry, but the reported ownership split differs ' +
+          'slightly from the official record (see discrepancy below).',
+        discrepancies,
+      },
       discrepancies.length === 0 ? 'VERIFIED' : 'DISCREPANCY_FOUND',
     );
 

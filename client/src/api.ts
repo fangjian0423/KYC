@@ -36,3 +36,8 @@ export async function verifyCase(id: string): Promise<Case> {
   const { data } = await api.post<Case>(`/api/cases/${id}/verify`);
   return data;
 }
+
+/** Public URL of the uploaded document image for a case (served by the backend). */
+export function documentUrl(id: string): string {
+  return `${BASE_URL}/api/cases/${id}/document`;
+}

@@ -88,7 +88,6 @@ export default function App() {
             </div>
             <DocumentUploadComponent
               onCaseCreated={handleCaseCreated}
-              onVerified={handleCaseUpdated}
             />
           </div>
         )}

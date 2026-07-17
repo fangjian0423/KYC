@@ -59,22 +59,25 @@ function DiscrepancyRow({ d }: { d: Discrepancy }) {
       : 'border-yellow-400 bg-yellow-50';
   return (
     <div className={`rounded border-l-4 p-2 text-xs ${severityClass}`}>
-      <p className="font-semibold text-gray-700">{d.field}</p>
-      <p className="text-gray-600">
-        <span className="font-medium">Extracted:</span> {d.extractedValue}
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-gray-700">{d.field}</p>
+        <span
+          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            d.severity === 'CRITICAL'
+              ? 'bg-red-200 text-red-800'
+              : 'bg-yellow-200 text-yellow-800'
+          }`}
+        >
+          {d.severity}
+        </span>
+      </div>
+      {d.description && <p className="mt-1 text-gray-700">{d.description}</p>}
+      <p className="mt-1 text-gray-600">
+        <span className="font-medium">Document:</span> {d.extractedValue}
       </p>
       <p className="text-gray-600">
         <span className="font-medium">Registry:</span> {d.registryValue}
       </p>
-      <span
-        className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
-          d.severity === 'CRITICAL'
-            ? 'bg-red-200 text-red-800'
-            : 'bg-yellow-200 text-yellow-800'
-        }`}
-      >
-        {d.severity}
-      </span>
     </div>
   );
 }
@@ -101,6 +104,16 @@ export function IntelligencePanel({ data }: { data?: ComparisonResults }) {
               />
             </div>
           </div>
+
+          {/* Plain-language summary */}
+          {data.summary && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Assessment
+              </p>
+              <p className="text-sm text-gray-700">{data.summary}</p>
+            </div>
+          )}
 
           {/* Discrepancies */}
           {data.discrepancies.length > 0 ? (
