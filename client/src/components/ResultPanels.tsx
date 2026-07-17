@@ -1,19 +1,25 @@
 import type { ExtractedData, UboRegistryData, ComparisonResults, Discrepancy } from '../types';
+import type { CSSProperties } from 'react';
+import { AlertTriangle, Check, Database, FileSearch, Scale, ShieldAlert, Sparkles, Users } from 'lucide-react';
+
+function DataField({ label, value }: { label: string; value: string }) {
+  return <div className="data-field"><span>{label}</span><strong>{value || 'Not found'}</strong></div>;
+}
+
+function OwnershipList({ shareholders }: { shareholders: Array<{ name: string; equityPercentage: number }> }) {
+  return <div className="ownership-list"><div className="ownership-title"><Users size={14} /> Ownership structure</div>{shareholders.length ? shareholders.map((s) => <div className="owner-row" key={s.name}><div className="owner-avatar">{s.name.slice(0,2).toUpperCase()}</div><span>{s.name}</span><strong>{s.equityPercentage}%</strong></div>) : <p>No shareholders reported by this source.</p>}</div>;
+}
 
 // ─── Extracted Data Card ────────────────────────────────────────────────────
 
 export function ExtractedDataCard({ data }: { data?: ExtractedData }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm h-full">
-      <h3 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-        Document Extraction Layer
-      </h3>
+    <div className="evidence-card">
+      <div className="evidence-heading"><div className="evidence-icon document"><FileSearch size={18} /></div><div><span>AGENT 01 · DOCUMENT AI</span><h3>Extracted evidence</h3></div>{data && <em><Check size={12} /> Complete</em>}</div>
       {data ? (
-        <pre className="overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-800 whitespace-pre-wrap">
-          {JSON.stringify(data, null, 2)}
-        </pre>
+        <><div className="data-grid"><DataField label="Legal name" value={data.legalName} /><DataField label="Registration number" value={data.registrationNumber} /><DataField label="Document classified as" value={data.documentTypeIdentified.replace(/_/g, ' ')} /></div><OwnershipList shareholders={data.shareholders} /></>
       ) : (
-        <p className="text-sm text-gray-400 italic">No extraction data yet.</p>
+        <div className="awaiting-agent"><FileSearch size={24} /><span>Waiting for document analysis</span><small>The vision agent will extract entity fields here.</small></div>
       )}
     </div>
   );
@@ -23,16 +29,12 @@ export function ExtractedDataCard({ data }: { data?: ExtractedData }) {
 
 export function RegistryDataCard({ data }: { data?: UboRegistryData }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm h-full">
-      <h3 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-        Official Government Registry Data
-      </h3>
+    <div className="evidence-card">
+      <div className="evidence-heading"><div className="evidence-icon registry"><Database size={18} /></div><div><span>AGENT 02 · UBO REGISTRY</span><h3>Official registry profile</h3></div>{data && <em><span className="source-dot" /> Live source</em>}</div>
       {data ? (
-        <pre className="overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-800 whitespace-pre-wrap">
-          {JSON.stringify(data, null, 2)}
-        </pre>
+        <><div className="data-grid"><DataField label="Registry entity" value={data.registryName} /><DataField label="Official tax / VAT code" value={data.taxCode} /><DataField label="Source" value="Custom OpenAPI · DE" /></div><OwnershipList shareholders={data.shareholders} /></>
       ) : (
-        <p className="text-sm text-gray-400 italic">No registry data yet.</p>
+        <div className="awaiting-agent"><Database size={24} /><span>Registry lookup pending</span><small>Your configured UBO source will appear here.</small></div>
       )}
     </div>
   );
@@ -40,27 +42,11 @@ export function RegistryDataCard({ data }: { data?: UboRegistryData }) {
 
 // ─── Match Score Gauge ──────────────────────────────────────────────────────
 
-function scoreColor(score: number) {
-  if (score >= 80) return 'text-green-600';
-  if (score >= 50) return 'text-yellow-500';
-  return 'text-red-600';
-}
-
-function barColor(score: number) {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 50) return 'bg-yellow-400';
-  return 'bg-red-500';
-}
-
 function DiscrepancyRow({ d }: { d: Discrepancy }) {
-  const severityClass =
-    d.severity === 'CRITICAL'
-      ? 'border-red-400 bg-red-50'
-      : 'border-yellow-400 bg-yellow-50';
   return (
-    <div className={`rounded border-l-4 p-2 text-xs ${severityClass}`}>
+    <div className={`discrepancy-card ${d.severity === 'CRITICAL' ? 'critical' : 'warning'}`}>
       <div className="flex items-center justify-between gap-2">
-        <p className="font-semibold text-gray-700">{d.field}</p>
+        <p><ShieldAlert size={14} /> {d.field}</p>
         <span
           className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
             d.severity === 'CRITICAL'
@@ -71,66 +57,47 @@ function DiscrepancyRow({ d }: { d: Discrepancy }) {
           {d.severity}
         </span>
       </div>
-      {d.description && <p className="mt-1 text-gray-700">{d.description}</p>}
-      <p className="mt-1 text-gray-600">
-        <span className="font-medium">Document:</span> {d.extractedValue}
-      </p>
-      <p className="text-gray-600">
-        <span className="font-medium">Registry:</span> {d.registryValue}
-      </p>
+      {d.description && <p className="discrepancy-description">{d.description}</p>}
+      <div className="value-comparison"><div><span>DOCUMENT</span><strong>{d.extractedValue}</strong></div><Scale size={15} /><div><span>REGISTRY</span><strong>{d.registryValue}</strong></div></div>
     </div>
   );
 }
 
 export function IntelligencePanel({ data }: { data?: ComparisonResults }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm h-full flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-        Intelligence &amp; Match Score
-      </h3>
+    <div className="intelligence-card">
+      <div className="evidence-heading"><div className="evidence-icon intelligence"><Sparkles size={18} /></div><div><span>AGENT 03 · RISK INTELLIGENCE</span><h3>Decision intelligence</h3></div></div>
 
       {data ? (
         <>
           {/* Score gauge */}
-          <div className="flex flex-col items-center gap-2">
-            <span className={`text-5xl font-bold ${scoreColor(data.matchScore)}`}>
-              {data.matchScore}
-            </span>
-            <span className="text-xs text-gray-400">/ 100</span>
-            <div className="w-full rounded-full bg-gray-200 h-3">
-              <div
-                className={`h-3 rounded-full transition-all ${barColor(data.matchScore)}`}
-                style={{ width: `${data.matchScore}%` }}
-              />
-            </div>
+          <div className="score-zone">
+            <div className={`score-ring ${data.matchScore >= 80 ? 'good' : data.matchScore >= 50 ? 'medium' : 'bad'}`} style={{ '--score': `${data.matchScore * 3.6}deg` } as CSSProperties}><div><strong>{data.matchScore}</strong><span>/100</span></div></div>
+            <div><span>ENTITY MATCH</span><h4>{data.matchScore >= 80 ? 'High confidence match' : data.matchScore >= 50 ? 'Manual review suggested' : 'Critical mismatch detected'}</h4><p>{data.discrepancies.length} evidence difference{data.discrepancies.length === 1 ? '' : 's'} identified</p></div>
           </div>
 
           {/* Plain-language summary */}
           {data.summary && (
-            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-              <p className="mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Assessment
-              </p>
-              <p className="text-sm text-gray-700">{data.summary}</p>
+            <div className="assessment-box">
+              <p><Sparkles size={13} /> AI ASSESSMENT</p>
+              <div>{data.summary}</div>
             </div>
           )}
 
           {/* Discrepancies */}
           {data.discrepancies.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-semibold text-gray-500">
-                Discrepancies ({data.discrepancies.length})
-              </p>
+            <div className="discrepancy-list">
+              <p><AlertTriangle size={14} /> Evidence discrepancies <span>{data.discrepancies.length}</span></p>
               {data.discrepancies.map((d, i) => (
                 <DiscrepancyRow key={i} d={d} />
               ))}
             </div>
           ) : (
-            <p className="text-sm text-green-600 font-medium">No discrepancies found.</p>
+            <div className="all-clear"><Check size={18} /> All source evidence is consistent.</div>
           )}
         </>
       ) : (
-        <p className="text-sm text-gray-400 italic">Run verification to see results.</p>
+        <div className="awaiting-agent large"><Sparkles size={27} /><span>Ready to generate a decision</span><small>Run verification to compare evidence and explain risk.</small></div>
       )}
     </div>
   );

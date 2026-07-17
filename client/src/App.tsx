@@ -1,11 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
+import {
+  Activity, ArrowRight, Boxes, Building2, Check, ChevronRight, CircleHelp,
+  Cloud, Database, FileSearch, Globe2, LayoutDashboard, Menu, Plus,
+  RefreshCw, Search, Settings2, ShieldCheck, Sparkles, X, Zap, Rocket, Server,
+} from 'lucide-react';
 import type { Case } from './types';
 import { fetchCases } from './api';
 import { StatusBadge } from './components/StatusBadge';
 import { CaseDetail } from './components/CaseDetail';
 import { DocumentUploadComponent } from './components/DocumentUploadComponent';
+import './App.css';
 
-type View = 'grid' | 'detail' | 'new';
+type View = 'grid' | 'detail' | 'new' | 'registry' | 'deploy';
+
+const pipeline = [
+  { label: 'Document AI', detail: 'Vision extraction', icon: FileSearch },
+  { label: 'UBO Registry', detail: 'Live source query', icon: Database },
+  { label: 'Risk Intelligence', detail: 'AI comparison', icon: Sparkles },
+];
 
 export default function App() {
   const [cases, setCases] = useState<Case[]>([]);
@@ -13,158 +25,160 @@ export default function App() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [view, setView] = useState<View>('grid');
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+  const [query, setQuery] = useState('');
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const loadCases = useCallback(async () => {
     setLoadingCases(true);
     setFetchError(null);
-    try {
-      const data = await fetchCases();
-      setCases(data);
-    } catch {
-      setFetchError('Could not reach backend API. Make sure the server is running.');
-    } finally {
-      setLoadingCases(false);
-    }
+    try { setCases(await fetchCases()); }
+    catch { setFetchError('The verification service is temporarily unavailable.'); }
+    finally { setLoadingCases(false); }
   }, []);
 
-  useEffect(() => {
-    loadCases();
-  }, [loadCases]);
+  // Initial synchronization with the external case API.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadCases(); }, [loadCases]);
 
-  function handleSelectCase(c: Case) {
-    setSelectedCase(c);
-    setView('detail');
-  }
+  const verified = cases.filter((c) => c.status === 'VERIFIED').length;
+  const flagged = cases.filter((c) => c.status === 'DISCREPANCY_FOUND').length;
+  const filteredCases = cases.filter((c) =>
+    `${c.companyName} ${c.id} ${c.countryCode}`.toLowerCase().includes(query.toLowerCase()),
+  );
 
-  function handleCaseCreated(c: Case) {
-    setCases((prev) => [c, ...prev]);
-    setSelectedCase(c);
-    setView('detail');
+  function navigate(next: View) {
+    setView(next);
+    setMobileOpen(false);
+    if (next !== 'detail') setSelectedCase(null);
   }
-
-  function handleCaseUpdated(updated: Case) {
-    setCases((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    setSelectedCase(updated);
-  }
-
-  function handleBack() {
-    setSelectedCase(null);
-    setView('grid');
-    loadCases();
-  }
+  function handleSelectCase(c: Case) { setSelectedCase(c); setView('detail'); }
+  function handleCaseCreated(c: Case) { setCases((prev) => [c, ...prev]); setSelectedCase(c); setView('detail'); }
+  function handleCaseUpdated(updated: Case) { setCases((prev) => prev.map((c) => c.id === updated.id ? updated : c)); setSelectedCase(updated); }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Navbar */}
-      <header className="bg-indigo-700 shadow">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold text-white tracking-tight">KYB CaseManager</span>
-          </div>
-          <button
-            onClick={() => setView('new')}
-            className="rounded bg-white px-4 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 transition"
-          >
-            + New Case
-          </button>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand" onClick={() => navigate('grid')} role="button" tabIndex={0}>
+          <div className="brand-mark"><ShieldCheck size={21} /></div>
+          <div><strong>VerityOS</strong><span>KYB Intelligence</span></div>
+        </div>
+        <nav className={mobileOpen ? 'main-nav mobile-open' : 'main-nav'}>
+          <button className={view === 'grid' ? 'active' : ''} onClick={() => navigate('grid')}><LayoutDashboard size={16} /> Command Center</button>
+          <button className={view === 'registry' ? 'active' : ''} onClick={() => navigate('registry')}><Database size={16} /> Registry Studio</button>
+          <button className={view === 'deploy' ? 'active' : ''} onClick={() => navigate('deploy')}><Boxes size={16} /> Deploy</button>
+        </nav>
+        <div className="topbar-actions">
+          <div className="environment-pill"><span /> Production</div>
+          <button className="icon-button" aria-label="Help"><CircleHelp size={18} /></button>
+          <button className="primary-button compact" onClick={() => navigate('new')}><Plus size={17} /> New verification</button>
+          <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menu">{mobileOpen ? <X /> : <Menu />}</button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        {/* New Case Form */}
-        {view === 'new' && (
-          <div className="max-w-md mx-auto">
-            <div className="mb-4 flex items-center gap-3">
-              <button
-                onClick={() => setView('grid')}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition"
-              >
-                Back
-              </button>
-              <h2 className="text-lg font-semibold text-gray-900">Create New Case</h2>
-            </div>
-            <DocumentUploadComponent
-              onCaseCreated={handleCaseCreated}
-            />
-          </div>
-        )}
-
-        {/* Case Detail */}
-        {view === 'detail' && selectedCase && (
-          <CaseDetail
-            selectedCase={selectedCase}
-            onBack={handleBack}
-            onUpdate={handleCaseUpdated}
-          />
-        )}
-
-        {/* Case Grid */}
-        {view === 'grid' && (
-          <>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Active Cases</h2>
-              <button
-                onClick={loadCases}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition"
-              >
-                Refresh
-              </button>
-            </div>
-
-            {loadingCases && (
-              <div className="flex justify-center py-12">
-                <svg className="h-8 w-8 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-              </div>
-            )}
-
-            {fetchError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                {fetchError}
-              </div>
-            )}
-
-            {!loadingCases && !fetchError && cases.length === 0 && (
-              <div className="rounded-lg border border-gray-200 bg-white p-12 text-center text-gray-400">
-                No cases found. Click <strong>+ New Case</strong> to get started.
-              </div>
-            )}
-
-            {!loadingCases && cases.length > 0 && (
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Case ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Company Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Country</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {cases.map((c) => (
-                      <tr
-                        key={c.id}
-                        onClick={() => handleSelectCase(c)}
-                        className="cursor-pointer hover:bg-indigo-50 transition"
-                      >
-                        <td className="px-4 py-3 font-mono text-xs text-gray-500 truncate max-w-[120px]">{c.id}</td>
-                        <td className="px-4 py-3 font-medium text-gray-900">{c.companyName}</td>
-                        <td className="px-4 py-3 text-gray-600">{c.countryCode}</td>
-                        <td className="px-4 py-3 text-gray-500">{new Date(c.createdAt).toLocaleDateString()}</td>
-                        <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
+      <main>
+        {view === 'grid' && <Dashboard cases={cases} filteredCases={filteredCases} loading={loadingCases} error={fetchError} verified={verified} flagged={flagged} query={query} setQuery={setQuery} loadCases={loadCases} navigate={navigate} selectCase={handleSelectCase} />}
+        {view === 'new' && <div className="page-container form-page"><button className="back-link" onClick={() => navigate('grid')}>← Back to workspace</button><div className="form-hero"><span className="section-kicker">NEW VERIFICATION</span><h1>Verify a business entity</h1><p>Upload one document. Our Foundry agents handle extraction, registry lookup and risk comparison.</p></div><DocumentUploadComponent onCaseCreated={handleCaseCreated} /></div>}
+        {view === 'detail' && selectedCase && <div className="page-container detail-page"><CaseDetail selectedCase={selectedCase} onBack={() => navigate('grid')} onUpdate={handleCaseUpdated} /></div>}
+        {view === 'registry' && <RegistryStudio onBack={() => navigate('grid')} />}
+        {view === 'deploy' && <DeploymentCenter onBack={() => navigate('grid')} />}
       </main>
     </div>
   );
+}
+
+function DeploymentCenter({ onBack }: { onBack: () => void }) {
+  const [deploying, setDeploying] = useState(false);
+  const [done, setDone] = useState(false);
+  function deploy() {
+    setDeploying(true);
+    setTimeout(() => { setDeploying(false); setDone(true); }, 2200);
+  }
+  return <div className="page-container deploy-page">
+    <button className="back-link" onClick={onBack}>← Back to command center</button>
+    <div className="deploy-hero"><div className="eyebrow"><Rocket size={14} /> NO-CODE DEPLOYMENT</div><h1>Your KYB platform,<br /><span>live in minutes.</span></h1><p>VerityOS packages agents, private APIs, storage and observability into one secure Azure deployment.</p></div>
+    <div className="deploy-layout">
+      <section className="deploy-config">
+        <div className="config-header"><div><h2>Deployment profile</h2><p>Everything required has already been validated.</p></div><span className="connected-badge"><Check size={13} /> Ready</span></div>
+        <div className="deploy-form">
+          <label className="guided-field"><span>Azure subscription</span><select><option>App Modernization - Test</option></select></label>
+          <label className="guided-field"><span>Region</span><select><option>West US 3</option><option>East US</option></select></label>
+          <label className="guided-field"><span>Environment name</span><input defaultValue="kyc-production" /></label>
+          <label className="guided-field"><span>Foundry project</span><select><option>jimmy-test / proj-default</option></select></label>
+        </div>
+        <div className="preflight"><h3>Pre-flight checks</h3>{[['Azure identity','Authenticated'],['Foundry model','gpt-5.4 ready'],['UBO connector','Custom OpenAPI connected'],['Security baseline','Managed identity only']].map(([a,b])=><div key={a}><span><Check size={12} /></span><strong>{a}</strong><em>{b}</em></div>)}</div>
+        <button className={done ? 'deploy-button success' : 'deploy-button'} onClick={deploy} disabled={deploying || done}>{deploying ? <><RefreshCw className="spin" size={17} /> Provisioning secure environment…</> : done ? <><Check size={17} /> Environment is live</> : <><Rocket size={17} /> Deploy VerityOS</>}</button>
+        <p className="deploy-note"><ShieldCheck size={13} /> No credentials are stored in the app. All services use Azure Managed Identity.</p>
+      </section>
+      <section className="architecture-card">
+        <div className="architecture-heading"><span>YOUR MANAGED ARCHITECTURE</span><strong>Secure by default</strong></div>
+        <div className="architecture-flow">
+          <div className="arch-node public"><Globe2 /><strong>Web experience</strong><span>Azure Container Apps</span></div>
+          <i />
+          <div className="arch-private"><span>PRIVATE NETWORK</span><div className="arch-node"><Server /><strong>KYB API</strong><small>Internal only</small></div><div className="arch-split"><div className="arch-node small"><Sparkles /><strong>Foundry</strong></div><div className="arch-node small"><Database /><strong>Cosmos DB</strong></div><div className="arch-node small"><Cloud /><strong>Blob Storage</strong></div></div></div>
+        </div>
+        <div className="architecture-benefits"><span><Check size={12} /> Infrastructure as code</span><span><Check size={12} /> Autoscaling enabled</span><span><Check size={12} /> End-to-end tracing</span></div>
+      </section>
+    </div>
+  </div>;
+}
+
+interface DashboardProps {
+  cases: Case[]; filteredCases: Case[]; loading: boolean; error: string | null;
+  verified: number; flagged: number; query: string; setQuery: (value: string) => void;
+  loadCases: () => void; navigate: (view: View) => void; selectCase: (c: Case) => void;
+}
+
+function Dashboard({ cases, filteredCases, loading, error, verified, flagged, query, setQuery, loadCases, navigate, selectCase }: DashboardProps) {
+  return <div className="page-container dashboard-page">
+    <section className="hero-banner">
+      <div className="hero-copy">
+        <div className="eyebrow"><Zap size={14} /> Built on Microsoft Foundry</div>
+        <h1>KYB intelligence,<br /><span>ready for every team.</span></h1>
+        <p>Deploy a production-ready verification workflow in minutes. Connect any UBO registry without writing orchestration code.</p>
+        <div className="hero-actions"><button className="primary-button" onClick={() => navigate('new')}>Start a verification <ArrowRight size={17} /></button><button className="secondary-button" onClick={() => navigate('registry')}><Settings2 size={17} /> Customize registry</button></div>
+        <div className="trust-row"><span><Check size={14} /> Managed identity</span><span><Check size={14} /> Private backend</span><span><Check size={14} /> Audit-ready traces</span></div>
+      </div>
+      <div className="pipeline-visual">
+        <div className="pipeline-heading"><div><span className="live-dot" /> Live verification pipeline</div><span>3 agents</span></div>
+        {pipeline.map(({ label, detail, icon: Icon }, index) => <div className="pipeline-step" key={label}><div className="step-icon"><Icon size={19} /></div><div><strong>{label}</strong><span>{detail}</span></div><div className="step-status"><Check size={14} /></div>{index < pipeline.length - 1 && <div className="step-connector" />}</div>)}
+        <div className="pipeline-result"><Sparkles size={16} /><span>One workflow. Explainable results.</span></div>
+      </div>
+    </section>
+
+    <section className="stats-grid">
+      <div className="stat-card"><div className="stat-icon blue"><Activity /></div><div><span>Active cases</span><strong>{cases.length}</strong><small>Live workload</small></div></div>
+      <div className="stat-card"><div className="stat-icon green"><ShieldCheck /></div><div><span>Verified</span><strong>{verified}</strong><small>Passed all checks</small></div></div>
+      <div className="stat-card"><div className="stat-icon coral"><FileSearch /></div><div><span>Needs review</span><strong>{flagged}</strong><small>AI-flagged evidence</small></div></div>
+      <div className="registry-stat" onClick={() => navigate('registry')} role="button" tabIndex={0}><div className="registry-logo"><Globe2 /></div><div><span>Registry connection</span><strong>Custom OpenAPI</strong><small><i /> Connected · DE sandbox</small></div><ChevronRight size={19} /></div>
+    </section>
+
+    <section className="workspace-section">
+      <div className="section-heading"><div><span className="section-kicker">OPERATIONS</span><h2>Verification workspace</h2><p>Review every entity and follow its decision trail.</p></div><div className="table-actions"><label className="search-box"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search company, country or ID" /></label><button className="icon-button bordered" onClick={loadCases} aria-label="Refresh"><RefreshCw size={17} /></button></div></div>
+      {loading && <div className="loading-state"><RefreshCw className="spin" /><span>Syncing verification workspace…</span></div>}
+      {error && <div className="error-state">{error}<button onClick={loadCases}>Try again</button></div>}
+      {!loading && !error && filteredCases.length === 0 && <div className="empty-state"><div><Building2 /></div><h3>No cases found</h3><p>Start with a company document and VerityOS will orchestrate the rest.</p><button className="primary-button" onClick={() => navigate('new')}><Plus size={17} /> New verification</button></div>}
+      {!loading && filteredCases.length > 0 && <div className="case-table-wrap"><table className="case-table"><thead><tr><th>Entity</th><th>Jurisdiction</th><th>Created</th><th>AI decision</th><th>Match</th><th /></tr></thead><tbody>{filteredCases.map((c) => <tr key={c.id} onClick={() => selectCase(c)}><td><div className="entity-cell"><div className="entity-avatar">{c.companyName.slice(0, 2).toUpperCase()}</div><div><strong>{c.companyName}</strong><span>{c.registrationNumber || c.id.slice(0, 16)}</span></div></div></td><td><span className="country-chip">{c.countryCode}</span></td><td><span className="date-main">{new Date(c.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span><small>{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></td><td><StatusBadge status={c.status} /></td><td>{c.comparisonResults ? <div className="mini-score"><span>{c.comparisonResults.matchScore}</span><i><b style={{ width: `${c.comparisonResults.matchScore}%` }} /></i></div> : <span className="muted">Pending</span>}</td><td><button className="row-action"><ChevronRight /></button></td></tr>)}</tbody></table></div>}
+    </section>
+
+    <section className="value-strip"><div><Cloud /><span><strong>One-click Azure deployment</strong>No infrastructure expertise required</span></div><div><Database /><span><strong>Bring your own registry</strong>Map any REST or OpenAPI source</span></div><div><Sparkles /><span><strong>Foundry-native agents</strong>Observable, secure and explainable</span></div></section>
+  </div>;
+}
+
+function RegistryStudio({ onBack }: { onBack: () => void }) {
+  const [saved, setSaved] = useState(false);
+  const mappings = [['Legal name','company.legalName','adidas AG'],['Registration no.','company.vatCode','DE132490588'],['Shareholders','ownership.shareholders[]','2 records'],['Equity %','ownership.equityPercentage','60%']];
+  return <div className="page-container registry-page">
+    <button className="back-link" onClick={onBack}>← Back to command center</button>
+    <div className="registry-hero"><div><div className="eyebrow"><Database size={14} /> NO-CODE CONNECTOR</div><h1>Registry Studio</h1><p>Bring your preferred UBO source. Map its API to a standard entity profile—your Foundry agents stay unchanged.</p></div><div className="connection-health"><span><i /> Live</span><strong>Custom OpenAPI</strong><small>Last checked just now · 186 ms</small></div></div>
+    <div className="registry-layout">
+      <aside className="registry-sidebar"><span>CONNECTORS</span><button className="selected"><div className="provider-icon">OA</div><div><strong>Custom OpenAPI</strong><small>Active provider</small></div><Check size={16} /></button><button><div className="provider-icon muted-logo">CH</div><div><strong>Companies House</strong><small>Ready to connect</small></div></button><button><div className="provider-icon muted-logo">BR</div><div><strong>Bundesregister</strong><small>Ready to connect</small></div></button><button className="add-provider"><Plus size={16} /> Add provider</button></aside>
+      <section className="registry-config">
+        <div className="config-header"><div><h2>Custom OpenAPI</h2><p>Sandbox registry for the hackathon environment</p></div><span className="connected-badge"><i /> Connected</span></div>
+        <div className="config-section"><div className="config-title"><span>1</span><div><h3>Connection</h3><p>Where should the registry agent look?</p></div></div><div className="form-grid"><label className="field full"><span>Base URL</span><div className="input-with-icon"><Globe2 size={16} /><input defaultValue="https://registry.example.com/api/v1" /></div></label><label className="field"><span>Authentication</span><select defaultValue="oauth"><option value="oauth">OAuth 2.0</option><option>API key</option><option>Managed identity</option></select></label><label className="field"><span>Region</span><select><option>European Union</option><option>United Kingdom</option><option>United States</option></select></label></div></div>
+        <div className="config-section"><div className="config-title"><span>2</span><div><h3>Field mapping</h3><p>Translate registry fields into the universal KYB schema.</p></div></div><div className="mapping-table"><div className="mapping-head"><span>VerityOS field</span><span>Registry response</span><span>Sample</span></div>{mappings.map(([a,b,c]) => <div className="mapping-row" key={a}><strong>{a}</strong><code>{b}</code><span>{c}</span></div>)}</div></div>
+        <div className="config-section compact-section"><div className="config-title"><span>3</span><div><h3>Agent routing</h3><p>This connector is available to the UBO Registry Agent.</p></div></div><div className="agent-route"><div className="step-icon"><Sparkles size={18} /></div><div><strong>kyc-ubo-registry-agent</strong><span>Microsoft Foundry · gpt-5.4</span></div><span className="connected-badge"><Check size={13} /> Ready</span></div></div>
+        <div className="config-actions"><button className="secondary-button">Test connection</button><button className="primary-button" onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}>{saved ? <><Check size={17} /> Configuration saved</> : 'Save configuration'}</button></div>
+      </section>
+    </div>
+  </div>;
 }

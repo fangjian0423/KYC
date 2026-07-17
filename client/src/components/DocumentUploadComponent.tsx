@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type { Case, DocType } from '../types';
 import { createCase } from '../api';
+import { Building2, Check, Database, FileImage, LockKeyhole, UploadCloud } from 'lucide-react';
 
 const DOC_TYPES: DocType[] = ['PASSPORT', 'BUSINESS_REGISTRATION', 'BANK_STATEMENT'];
 
@@ -63,63 +64,70 @@ export function DocumentUploadComponent({ onCaseCreated }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-        Upload Document
-      </h3>
+    <div className="onboarding-card">
+      <div className="onboarding-progress">
+        <div className="active"><span><Building2 size={15} /></span><strong>Entity</strong><small>Business details</small></div>
+        <i />
+        <div><span><Database size={15} /></span><strong>Registry</strong><small>Source lookup</small></div>
+        <i />
+        <div><span><FileImage size={15} /></span><strong>Evidence</strong><small>Upload document</small></div>
+      </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <form onSubmit={handleSubmit} className="guided-form">
+        <div className="form-section-title"><span>1</span><div><h3>Entity information</h3><p>Tell us which business you want to verify.</p></div></div>
+        <div className="guided-grid">
         {/* Company Name */}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Company Name</label>
+        <label className="guided-field wide">
+          <span>Legal company name</span>
           <input
             type="text"
             required
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="Acme Corp Ltd."
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            placeholder="e.g. adidas AG"
           />
-        </div>
+        </label>
 
         {/* Country Code */}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Country (ISO-2)</label>
+        <label className="guided-field">
+          <span>Jurisdiction</span>
           <input
             type="text"
             required
             maxLength={2}
             value={countryCode}
             onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
-            placeholder="GB"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            placeholder="DE"
           />
-        </div>
+        </label>
 
         {/* VAT / Registration Number */}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            VAT / Registration Number
-          </label>
+        <label className="guided-field">
+          <span>Registration / VAT number</span>
           <input
             type="text"
             value={registrationNumber}
             onChange={(e) => setRegistrationNumber(e.target.value)}
             placeholder="e.g. DE132490588"
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
-          <p className="mt-1 text-xs text-gray-400">
-            Used to query the corporate registry. Sandbox example: DE132490588 (adidas AG).
-          </p>
+        </label>
         </div>
 
+        <div className="registry-context">
+          <div className="registry-context-icon"><Database size={18} /></div>
+          <div><strong>Custom OpenAPI Registry</strong><span>The UBO agent will query the connected DE sandbox using this registration number.</span></div>
+          <span className="registry-ready"><Check size={12} /> Ready</span>
+        </div>
+
+        <div className="form-section-title second"><span>2</span><div><h3>Supporting evidence</h3><p>Add the source document the agents should inspect.</p></div></div>
+        <div className="guided-grid">
+
         {/* Document Type Selector */}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Document Type</label>
+        <label className="guided-field wide">
+          <span>Document type</span>
           <select
             value={docType}
             onChange={(e) => setDocType(e.target.value as DocType)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             {DOC_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -127,42 +135,28 @@ export function DocumentUploadComponent({ onCaseCreated }: Props) {
               </option>
             ))}
           </select>
-        </div>
+        </label>
 
         {/* File Dropzone */}
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Document Image</label>
+        <div className="guided-field wide">
+          <span>Document image</span>
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
             onClick={() => inputRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center transition hover:border-indigo-400 hover:bg-indigo-50"
+            className={preview ? 'premium-dropzone has-preview' : 'premium-dropzone'}
           >
             {preview ? (
               <img
                 src={preview}
                 alt="Preview"
-                className="max-h-40 rounded object-contain"
+                className="document-preview"
               />
             ) : (
               <>
-                <svg
-                  className="mb-2 h-8 w-8 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M3 16.5V19a2 2 0 002 2h14a2 2 0 002-2v-2.5M12 3v13m0-13L8 7m4-4l4 4"
-                  />
-                </svg>
-                <p className="text-sm text-gray-500">
-                  Drag &amp; drop or <span className="text-indigo-600 font-medium">browse</span>
-                </p>
-                <p className="mt-1 text-xs text-gray-400">JPEG, PNG accepted</p>
+                <div className="upload-icon"><UploadCloud size={25} /></div>
+                <p>Drop your evidence here, or <strong>browse files</strong></p>
+                <small>PNG or JPEG · up to 25 MB · encrypted at rest</small>
               </>
             )}
             <input
@@ -173,19 +167,19 @@ export function DocumentUploadComponent({ onCaseCreated }: Props) {
               onChange={handleFileChange}
             />
           </div>
-          {file && (
-            <p className="mt-1 text-xs text-gray-500 truncate">{file.name}</p>
-          )}
+          {file && <div className="selected-file"><FileImage size={15} /><span>{file.name}</span><Check size={14} /></div>}
+        </div>
         </div>
 
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <div className="form-error">{error}</div>}
 
         {/* Actions */}
-        <div className="pt-1">
+        <div className="form-submit-row">
+          <span><LockKeyhole size={14} /> Secured with Azure Managed Identity</span>
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="primary-button submit-verification"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -196,7 +190,7 @@ export function DocumentUploadComponent({ onCaseCreated }: Props) {
                 Submitting…
               </span>
             ) : (
-              'Submit Case'
+              <>Create verification <span>→</span></>
             )}
           </button>
         </div>
