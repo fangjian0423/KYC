@@ -16,7 +16,7 @@
 [CmdletBinding()]
 param(
     [string]$ResourceGroup = 'jimmy',
-    [string]$Location = 'eastus',
+    [string]$Location = 'westus3',
     [string]$NamePrefix = 'kyc',
     # Azure subscription (name or ID) to deploy into.
     [string]$Subscription = 'edd0c578-a7c3-4a61-9536-63273eb9bc9b',
