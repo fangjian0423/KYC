@@ -8,8 +8,9 @@ RUN npm ci
 
 COPY . .
 
-# Inject build-time env (override via --build-arg or ACA env at build time)
-ARG VITE_BACKEND_API_URL=http://localhost:5000
+# Leave VITE_BACKEND_API_URL empty so the SPA calls same-origin /api/*, which nginx
+# reverse-proxies to the internal backend. Only override for special build setups.
+ARG VITE_BACKEND_API_URL=
 ENV VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL
 
 RUN npm run build
@@ -23,8 +24,12 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copy compiled SPA from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Custom nginx config to support React client-side routing
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx runs envsubst on templates at startup. Restrict substitution to BACKEND_*
+# variables so nginx's own $uri/$host are preserved. BACKEND_URL is provided at
+# runtime (ACA env var) and points at the internal backend Container App.
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+ENV NGINX_ENVSUBST_FILTER=^BACKEND_
+ENV BACKEND_URL=http://127.0.0.1:5000
 
 EXPOSE 80
 

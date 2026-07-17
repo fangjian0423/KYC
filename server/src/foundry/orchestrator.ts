@@ -4,6 +4,7 @@ import { REGISTRY_TOOL_NAME } from './tools';
 import { queryRegistry, isRegistryConfigured } from './registryClient';
 import { withSpan, currentTraceId } from './tracing';
 import { getRepository } from '../db/repositoryFactory';
+import { resolveImageDataUrl } from '../storage/blobClient';
 import type { Case, ExtractedData, UboRegistryData, ComparisonResults } from '../types';
 
 export interface VerificationResult {
@@ -132,7 +133,9 @@ export async function runVerification(caseId: string): Promise<VerificationResul
       const primaryDoc = existing.documents[0];
 
       // ── Step A: Extraction (vision when a document image is present) ──────
-      const hasImage = Boolean(primaryDoc?.imageDataUrl);
+      // Resolve the image from blob storage (production) or inline base64 (local).
+      const imageDataUrl = await resolveImageDataUrl(primaryDoc);
+      const hasImage = Boolean(imageDataUrl);
       const extracted = await withSpan(
         'kyc.extraction',
         {
@@ -158,7 +161,7 @@ export async function runVerification(caseId: string): Promise<VerificationResul
                 docType: primaryDoc?.docType ?? 'BUSINESS_REGISTRATION',
                 knownRegistrationNumber: existing.registrationNumber ?? 'UNKNOWN',
               });
-          const out = await runAgent(AGENT_NAMES.extraction, input, primaryDoc?.imageDataUrl);
+          const out = await runAgent(AGENT_NAMES.extraction, input, imageDataUrl);
           return parseJsonObject<ExtractedData>(out);
         },
       );

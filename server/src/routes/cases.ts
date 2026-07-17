@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getRepository } from '../db/repositoryFactory';
 import { isFoundryEnabled } from '../foundry/client';
 import { runVerification } from '../foundry/orchestrator';
+import { isBlobConfigured, uploadDocumentImage } from '../storage/blobClient';
 import type { CaseDocument, DocType } from '../types';
 
 const router = Router();
@@ -65,16 +66,29 @@ router.post('/', upload.single('file'), async (req: Request, res: Response, next
       file?.mimetype && file.mimetype.startsWith('image/')
         ? file.mimetype
         : `image/${(path.extname(file?.originalname ?? '').slice(1) || 'png').toLowerCase()}`;
-    const imageDataUrl =
+    const inlineDataUrl =
       file && looksLikeImage
         ? `data:${mime};base64,${file.buffer.toString('base64')}`
         : undefined;
+
+    const docId = uuidv4();
+
+    // Persist the image to Blob Storage when configured; otherwise keep it inline
+    // (base64 in the DB) for local/mock runs. Blob avoids storing heavy base64 in
+    // the database and keeps documents in durable storage for production.
+    let blobUrl = file ? `local://${file.originalname}` : 'local://no-file';
+    let imageDataUrl = inlineDataUrl;
+    if (file && looksLikeImage && isBlobConfigured()) {
+      blobUrl = await uploadDocumentImage(docId, file.buffer, mime);
+      // Don't duplicate the base64 in the DB — the vision step reloads it from blob.
+      imageDataUrl = undefined;
+    }
+
     const doc: CaseDocument = {
-      docId: uuidv4(),
+      docId,
       fileName: file?.originalname ?? 'unknown',
       docType,
-      // In a real deployment this would be an Azure Blob Storage URL
-      blobUrl: file ? `local://${file.originalname}` : 'local://no-file',
+      blobUrl,
       imageDataUrl,
     };
 

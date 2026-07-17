@@ -1,0 +1,13 @@
+node_modules
+dist
+npm-debug.log
+*.err
+.env
+.env.*
+!.env.example
+kyc.db
+kyc.db-*
+.git
+.gitignore
+Dockerfile
+.dockerignore

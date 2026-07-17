@@ -1,7 +1,10 @@
 import axios from 'axios';
 import type { Case, DocType } from './types';
 
-const BASE_URL = (import.meta.env.VITE_BACKEND_API_URL as string) || 'http://localhost:5000';
+// Empty base URL → requests go to same-origin relative paths (/api/...), which nginx
+// reverse-proxies to the internal backend in production. For local dev, set
+// VITE_BACKEND_API_URL=http://127.0.0.1:5000 in client/.env.local.
+const BASE_URL = (import.meta.env.VITE_BACKEND_API_URL as string) || '';
 
 const api = axios.create({ baseURL: BASE_URL });
 
