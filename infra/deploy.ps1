@@ -49,9 +49,16 @@ Write-Host "==> Selecting subscription $Subscription" -ForegroundColor Cyan
 az account set --subscription $Subscription
 Assert-LastExit 'set subscription'
 
-Write-Host "==> Resource group $ResourceGroup ($Location)" -ForegroundColor Cyan
-az group create -n $ResourceGroup -l $Location | Out-Null
-Assert-LastExit 'create resource group'
+Write-Host "==> Resource group $ResourceGroup (deploying resources to $Location)" -ForegroundColor Cyan
+$rgExists = (az group exists -n $ResourceGroup) -eq 'true'
+if ($rgExists) {
+    # RG metadata location is fixed once created; resources still deploy to $Location.
+    Write-Host "   Resource group already exists — reusing it (resources go to $Location)." -ForegroundColor DarkGray
+}
+else {
+    az group create -n $ResourceGroup -l $Location | Out-Null
+    Assert-LastExit 'create resource group'
+}
 
 Write-Host "==> Azure Container Registry $acrName" -ForegroundColor Cyan
 az acr create -g $ResourceGroup -n $acrName --sku Basic --admin-enabled true | Out-Null
@@ -74,6 +81,7 @@ Write-Host "==> Deploying infrastructure (main.bicep)" -ForegroundColor Cyan
 $deployment = az deployment group create `
     -g $ResourceGroup `
     -f "$PSScriptRoot/main.bicep" `
+    -p location=$Location `
     -p namePrefix=$NamePrefix `
     -p acrName=$acrName `
     -p backendImage=$backendImage `
