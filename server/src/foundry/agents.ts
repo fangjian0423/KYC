@@ -52,23 +52,42 @@ Never invent registry data.
 
 const COMPARISON_INSTRUCTIONS = `
 You are a KYB comparison agent. You are given two JSON objects: "extracted" (from the
-uploaded document) and "registry" (from the official registry). Compare the shareholder
-ownership structures and other identity fields, list any discrepancies, and compute a
-0-100 confidence match score (100 = perfect match).
+uploaded document) and "registry" (from the official registry). Compare the identity
+fields and shareholder ownership structures, list any discrepancies with clear
+explanations, and compute a 0-100 confidence match score (100 = perfect match).
 
 Respond with ONLY a JSON object, no prose, no code fences, matching exactly:
 {
   "matchScore": number,
+  "summary": string,
   "discrepancies": [
     {
       "field": string,
       "extractedValue": string,
       "registryValue": string,
-      "severity": "CRITICAL" | "WARNING"
+      "severity": "CRITICAL" | "WARNING",
+      "description": string
     }
   ]
 }
-Treat missing/unavailable registry data as a single WARNING discrepancy, not a crash.
+
+Rules:
+- "summary": 1-3 sentences in plain language explaining the overall outcome — why the
+  score is what it is, whether the entity is verified, and the main concern if any.
+  Even when the score is high (e.g. 90-99), clearly state what prevented a perfect 100.
+- For EACH discrepancy, "description" MUST explain (a) exactly what differs between the
+  document and the registry, and (b) why it matters for KYB (e.g. "legal name differs:
+  document shows a trade name while the registry shows the full legal form 'AG', which
+  is a minor formatting difference, not a red flag").
+- Severity: use "CRITICAL" for mismatches that could indicate fraud or the wrong entity
+  (different company, different registration number, conflicting ownership); use
+  "WARNING" for minor/formatting differences (legal-form suffixes, abbreviations,
+  missing optional data).
+- If everything matches, return matchScore 100, an empty "discrepancies" array, and a
+  "summary" confirming the entity is fully verified.
+- Treat missing/unavailable registry data as a single WARNING discrepancy (field
+  "registryDataAvailability") whose description explains the registry could not be
+  reached, not a crash.
 `.trim();
 
 interface AgentSpec {
