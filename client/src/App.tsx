@@ -99,7 +99,7 @@ function Dashboard({ cases, filteredCases, loading, error, verified, flagged, qu
     <section className="hero-banner">
       <div className="hero-copy">
         <div className="eyebrow"><Zap size={14} /> Built on Microsoft Foundry</div>
-        <h1>KYC intelligence,<br /><span>ready for every team.</span></h1>
+        <h1>Smart KYC.<br /><span>Built for the Modern Enterprise.</span></h1>
         <p>Deploy a production-ready verification workflow in minutes. Connect any UBO registry without writing orchestration code.</p>
         <div className="hero-actions"><button className="primary-button" onClick={() => navigate('new')}>Start a verification <ArrowRight size={17} /></button><button className="secondary-button" onClick={() => navigate('registry')}><Settings2 size={17} /> Customize registry</button></div>
         <div className="trust-row"><span><Check size={14} /> Managed identity</span><span><Check size={14} /> Private backend</span><span><Check size={14} /> Audit-ready traces</span></div>
