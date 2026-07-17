@@ -61,7 +61,7 @@ export function DeploymentCenter({ onBack }: Props) {
 
   return <div className="page-container deploy-page">
     <button className="back-link" onClick={onBack}>← Back to command center</button>
-    <div className="deploy-hero"><div className="eyebrow"><Rocket size={14} /> CONTROLLED AZURE DEPLOYMENT</div><h1>Your KYC platform,<br /><span>deployed by Managed Identity.</span></h1><p>This page now starts a real, asynchronous ARM deployment using one server-side allowlisted profile—never browser-side credentials or shell commands.</p></div>
+    <div className="deploy-hero"><div className="eyebrow"><Rocket size={14} /> CONTROLLED AZURE DEPLOYMENT</div><h1>Your KYC platform<br /></h1><p>This page now starts a real, asynchronous ARM deployment using one server-side allowlisted profile—never browser-side credentials or shell commands.</p></div>
     <div className="deploy-layout">
       <section className="deploy-config">
         <div className="config-header"><div><h2>Deployment profile</h2><p>Target values are resolved and enforced by the backend.</p></div>{loading ? <span className="connected-badge"><LoaderCircle className="spin" size={13} /> Checking</span> : <span className={blocked ? 'connected-badge blocked' : 'connected-badge'}>{blocked ? <X size={13} /> : <Check size={13} />} {blocked ? 'Blocked' : 'Ready'}</span>}</div>

@@ -67,7 +67,7 @@ export default function App() {
         <nav className={mobileOpen ? 'main-nav mobile-open' : 'main-nav'}>
           <button className={view === 'grid' ? 'active' : ''} onClick={() => navigate('grid')}><LayoutDashboard size={16} /> Command Center</button>
           <button className={view === 'registry' ? 'active' : ''} onClick={() => navigate('registry')}><Database size={16} /> Registry Studio</button>
-          <button className={view === 'deploy' ? 'active' : ''} onClick={() => navigate('deploy')}><Boxes size={16} /> Deploy</button>
+          <button className={view === 'deploy' ? 'active' : ''} onClick={() => navigate('deploy')}><Boxes size={16} /> Deployment Info</button>
         </nav>
         <div className="topbar-actions">
           <div className="environment-pill"><span /> Production</div>
@@ -99,8 +99,8 @@ function Dashboard({ cases, filteredCases, loading, error, verified, flagged, qu
     <section className="hero-banner">
       <div className="hero-copy">
         <div className="eyebrow"><Zap size={14} /> Built on Microsoft Foundry</div>
-        <h1>Smart KYC.<br /><span>Built for the Modern Enterprise.</span></h1>
-        <p>Deploy a production-ready verification workflow in minutes. Connect any UBO registry without writing orchestration code.</p>
+        <h1>Smart KYC<br /><span>Built for the Modern Enterprise</span></h1>
+        <p>Deploy a production-ready KYC verification workflow in minutes.</p>
         <div className="hero-actions"><button className="primary-button" onClick={() => navigate('new')}>Start a verification <ArrowRight size={17} /></button><button className="secondary-button" onClick={() => navigate('registry')}><Settings2 size={17} /> Customize registry</button></div>
       </div>
       <div className="pipeline-visual">
@@ -122,7 +122,7 @@ function Dashboard({ cases, filteredCases, loading, error, verified, flagged, qu
       {loading && <div className="loading-state"><RefreshCw className="spin" /><span>Syncing verification workspace…</span></div>}
       {error && <div className="error-state">{error}<button onClick={loadCases}>Try again</button></div>}
       {!loading && !error && filteredCases.length === 0 && <div className="empty-state"><div><Building2 /></div><h3>No cases found</h3><p>Start with a company document and VerityOS will orchestrate the rest.</p><button className="primary-button" onClick={() => navigate('new')}><Plus size={17} /> New verification</button></div>}
-      {!loading && filteredCases.length > 0 && <div className="case-table-wrap"><table className="case-table"><thead><tr><th>Entity</th><th>Jurisdiction</th><th>Created</th><th>AI decision</th><th>Match</th><th /></tr></thead><tbody>{filteredCases.map((c) => <tr key={c.id} onClick={() => selectCase(c)}><td><div className="entity-cell"><div className="entity-avatar">{c.companyName.slice(0, 2).toUpperCase()}</div><div><strong>{c.companyName}</strong><span>{c.registrationNumber || c.id.slice(0, 16)}</span></div></div></td><td><span className="country-chip">{c.countryCode}</span></td><td><span className="date-main">{new Date(c.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span><small>{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></td><td><StatusBadge status={c.status} /></td><td>{c.comparisonResults ? <div className="mini-score"><span>{c.comparisonResults.matchScore}</span><i><b style={{ width: `${c.comparisonResults.matchScore}%` }} /></i></div> : <span className="muted">Pending</span>}</td><td><button className="row-action"><ChevronRight /></button></td></tr>)}</tbody></table></div>}
+      {!loading && filteredCases.length > 0 && <div className="case-table-wrap"><table className="case-table"><thead><tr><th>Entity</th><th>Jurisdiction</th><th>Created</th><th>AI decision</th><th>Match</th><th /></tr></thead><tbody>{filteredCases.map((c) => <tr key={c.id} onClick={() => selectCase(c)}><td><div className="entity-cell"><div className="entity-avatar">{c.companyName.slice(0, 2).toUpperCase()}</div><div><strong>{c.companyName}</strong><span>{c.registrationNumber || c.id.slice(0, 16)}</span></div></div></td><td><span className="country-chip">{c.countryCode}</span></td><td><span className="date-main">{new Date(c.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span><small>{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></td><td><StatusBadge status={c.status} /></td><td>{c.comparisonResults ? <div className={c.comparisonResults.matchScore >= 80 ? 'mini-score good' : 'mini-score'}><span>{c.comparisonResults.matchScore}</span><i><b style={{ width: `${c.comparisonResults.matchScore}%` }} /></i></div> : <span className="muted">Pending</span>}</td><td><button className="row-action"><ChevronRight /></button></td></tr>)}</tbody></table></div>}
     </section>
 
     <section className="value-strip"><div><Cloud /><span><strong>One-click Azure deployment</strong>No infrastructure expertise required</span></div><div><Database /><span><strong>Bring your own registry</strong>Map any REST or OpenAPI source</span></div><div><Sparkles /><span><strong>Foundry-native agents</strong>Observable, secure and explainable</span></div></section>
