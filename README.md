@@ -116,6 +116,21 @@ REGISTRY_EMAIL=<your openapi.it account email>
 
 # Tracing (optional) — connect App Insights to see traces
 # APPLICATIONINSIGHTS_CONNECTION_STRING=...
+
+# Protected platform operations
+PLATFORM_ADMIN_KEY=<random high-entropy operator access code>
+REGISTRY_ALLOWED_HOSTS=test.company.openapi.com,company.openapi.com
+
+# Allowlisted Azure deployment profile (optional)
+# DEPLOYMENT_ENABLED=true
+# AZURE_SUBSCRIPTION_ID=<approved subscription UUID>
+# AZURE_SUBSCRIPTION_NAME=<friendly display name>
+# AZURE_RESOURCE_GROUP=<approved resource group>
+# AZURE_ACR_NAME=<existing ACR name>
+# DEPLOYMENT_LOCATION=westus3
+# DEPLOYMENT_NAME_PREFIX=kyc
+# DEPLOYMENT_BACKEND_IMAGE=<approved backend image>
+# DEPLOYMENT_FRONTEND_IMAGE=<approved frontend image>
 ```
 
 Frontend (`client/.env.local`): `VITE_BACKEND_API_URL=http://127.0.0.1:5000`
@@ -142,6 +157,25 @@ cd ../client && npm run dev     # frontend on :5173
 ```
 
 Open **http://localhost:5173**, create a case, and click **Verify**.
+
+### Registry Studio and Deployment Center
+
+The two administration pages use real backend APIs under `/api/platform`:
+
+- Registry Studio reads and writes the active connector configuration in the
+  `PlatformConfig` Cosmos container. A live connection test performs an actual
+  sandbox lookup, and every subsequent UBO tool call resolves the saved base URL
+  and field mappings.
+- Deployment Center starts a persisted asynchronous ARM deployment using the
+  versioned template compiled from `infra/main.bicep`. The browser cannot supply a
+  subscription, resource group, image, template, or command; those values come from
+  the server-side allowlisted profile.
+
+Mutating operations require `PLATFORM_ADMIN_KEY` in the `x-platform-admin-key`
+header. The UI keeps this operator access code only in component memory. In Azure,
+the backend Managed Identity needs `Contributor` only on the approved deployment
+resource group. A `ReadOnly` resource lock intentionally blocks deployment; an Azure
+operator must remove it before starting a job and restore it afterwards.
 
 ### Test data (openapi.it sandbox)
 
