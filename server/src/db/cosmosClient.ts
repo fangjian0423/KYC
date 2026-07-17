@@ -17,10 +17,11 @@ function parseConnectionString(cs: string): { endpoint: string; key?: string } {
   return { endpoint, key };
 }
 
-let _container: Container | null = null;
+const containers = new Map<string, Container>();
 
-export async function getContainer(): Promise<Container> {
-  if (_container) return _container;
+export async function getContainer(containerName = CONTAINER_NAME): Promise<Container> {
+  const existing = containers.get(containerName);
+  if (existing) return existing;
 
   // Prefer AAD (Managed Identity) when an explicit endpoint is provided — required
   // when the account has local (key) auth disabled. Fall back to connection-string
@@ -46,8 +47,9 @@ export async function getContainer(): Promise<Container> {
       endpoint,
       aadCredentials: new DefaultAzureCredential(),
     });
-    _container = client.database(DB_NAME).container(CONTAINER_NAME);
-    return _container;
+    const container = client.database(DB_NAME).container(containerName);
+    containers.set(containerName, container);
+    return container;
   }
 
   // Key auth (local emulator / dev): self-signed cert on the emulator.
@@ -57,11 +59,11 @@ export async function getContainer(): Promise<Container> {
 
   const { database } = await client.databases.createIfNotExists({ id: DB_NAME });
   const { container } = await database.containers.createIfNotExists({
-    id: CONTAINER_NAME,
+    id: containerName,
     partitionKey: { paths: [PARTITION_KEY] },
   });
 
-  _container = container;
-  return _container;
+  containers.set(containerName, container);
+  return container;
 }
 

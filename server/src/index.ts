@@ -9,6 +9,7 @@ import { initTracing } from './foundry/tracing';
 initTracing();
 
 import casesRouter from './routes/cases';
+import platformRouter from './routes/platform';
 
 const app = express();
 const PORT = process.env.PORT ?? 5000;
@@ -23,6 +24,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 app.use('/api/cases', casesRouter);
+app.use('/api/platform', platformRouter);
 
 // ── Error handler ─────────────────────────────────────────────────────────────
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

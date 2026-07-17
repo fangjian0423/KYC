@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Activity, ArrowRight, Boxes, Building2, Check, ChevronRight, CircleHelp,
   Cloud, Database, FileSearch, Globe2, LayoutDashboard, Menu, Plus,
-  RefreshCw, Search, Settings2, ShieldCheck, Sparkles, X, Zap, Rocket, Server,
+  RefreshCw, Search, Settings2, ShieldCheck, Sparkles, X, Zap,
 } from 'lucide-react';
 import type { Case } from './types';
 import { fetchCases } from './api';
 import { StatusBadge } from './components/StatusBadge';
 import { CaseDetail } from './components/CaseDetail';
 import { DocumentUploadComponent } from './components/DocumentUploadComponent';
+import { RegistryStudio } from './components/RegistryStudio';
+import { DeploymentCenter } from './components/DeploymentCenter';
 import './App.css';
 
 type View = 'grid' | 'detail' | 'new' | 'registry' | 'deploy';
@@ -60,7 +62,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand" onClick={() => navigate('grid')} role="button" tabIndex={0}>
           <div className="brand-mark"><ShieldCheck size={21} /></div>
-          <div><strong>VerityOS</strong><span>KYB Intelligence</span></div>
+          <div><strong>VerityOS</strong><span>KYC Intelligence</span></div>
         </div>
         <nav className={mobileOpen ? 'main-nav mobile-open' : 'main-nav'}>
           <button className={view === 'grid' ? 'active' : ''} onClick={() => navigate('grid')}><LayoutDashboard size={16} /> Command Center</button>
@@ -86,42 +88,6 @@ export default function App() {
   );
 }
 
-function DeploymentCenter({ onBack }: { onBack: () => void }) {
-  const [deploying, setDeploying] = useState(false);
-  const [done, setDone] = useState(false);
-  function deploy() {
-    setDeploying(true);
-    setTimeout(() => { setDeploying(false); setDone(true); }, 2200);
-  }
-  return <div className="page-container deploy-page">
-    <button className="back-link" onClick={onBack}>← Back to command center</button>
-    <div className="deploy-hero"><div className="eyebrow"><Rocket size={14} /> NO-CODE DEPLOYMENT</div><h1>Your KYB platform,<br /><span>live in minutes.</span></h1><p>VerityOS packages agents, private APIs, storage and observability into one secure Azure deployment.</p></div>
-    <div className="deploy-layout">
-      <section className="deploy-config">
-        <div className="config-header"><div><h2>Deployment profile</h2><p>Everything required has already been validated.</p></div><span className="connected-badge"><Check size={13} /> Ready</span></div>
-        <div className="deploy-form">
-          <label className="guided-field"><span>Azure subscription</span><select><option>App Modernization - Test</option></select></label>
-          <label className="guided-field"><span>Region</span><select><option>West US 3</option><option>East US</option></select></label>
-          <label className="guided-field"><span>Environment name</span><input defaultValue="kyc-production" /></label>
-          <label className="guided-field"><span>Foundry project</span><select><option>jimmy-test / proj-default</option></select></label>
-        </div>
-        <div className="preflight"><h3>Pre-flight checks</h3>{[['Azure identity','Authenticated'],['Foundry model','gpt-5.4 ready'],['UBO connector','Custom OpenAPI connected'],['Security baseline','Managed identity only']].map(([a,b])=><div key={a}><span><Check size={12} /></span><strong>{a}</strong><em>{b}</em></div>)}</div>
-        <button className={done ? 'deploy-button success' : 'deploy-button'} onClick={deploy} disabled={deploying || done}>{deploying ? <><RefreshCw className="spin" size={17} /> Provisioning secure environment…</> : done ? <><Check size={17} /> Environment is live</> : <><Rocket size={17} /> Deploy VerityOS</>}</button>
-        <p className="deploy-note"><ShieldCheck size={13} /> No credentials are stored in the app. All services use Azure Managed Identity.</p>
-      </section>
-      <section className="architecture-card">
-        <div className="architecture-heading"><span>YOUR MANAGED ARCHITECTURE</span><strong>Secure by default</strong></div>
-        <div className="architecture-flow">
-          <div className="arch-node public"><Globe2 /><strong>Web experience</strong><span>Azure Container Apps</span></div>
-          <i />
-          <div className="arch-private"><span>PRIVATE NETWORK</span><div className="arch-node"><Server /><strong>KYB API</strong><small>Internal only</small></div><div className="arch-split"><div className="arch-node small"><Sparkles /><strong>Foundry</strong></div><div className="arch-node small"><Database /><strong>Cosmos DB</strong></div><div className="arch-node small"><Cloud /><strong>Blob Storage</strong></div></div></div>
-        </div>
-        <div className="architecture-benefits"><span><Check size={12} /> Infrastructure as code</span><span><Check size={12} /> Autoscaling enabled</span><span><Check size={12} /> End-to-end tracing</span></div>
-      </section>
-    </div>
-  </div>;
-}
-
 interface DashboardProps {
   cases: Case[]; filteredCases: Case[]; loading: boolean; error: string | null;
   verified: number; flagged: number; query: string; setQuery: (value: string) => void;
@@ -133,7 +99,7 @@ function Dashboard({ cases, filteredCases, loading, error, verified, flagged, qu
     <section className="hero-banner">
       <div className="hero-copy">
         <div className="eyebrow"><Zap size={14} /> Built on Microsoft Foundry</div>
-        <h1>KYB intelligence,<br /><span>ready for every team.</span></h1>
+        <h1>KYC intelligence,<br /><span>ready for every team.</span></h1>
         <p>Deploy a production-ready verification workflow in minutes. Connect any UBO registry without writing orchestration code.</p>
         <div className="hero-actions"><button className="primary-button" onClick={() => navigate('new')}>Start a verification <ArrowRight size={17} /></button><button className="secondary-button" onClick={() => navigate('registry')}><Settings2 size={17} /> Customize registry</button></div>
         <div className="trust-row"><span><Check size={14} /> Managed identity</span><span><Check size={14} /> Private backend</span><span><Check size={14} /> Audit-ready traces</span></div>
@@ -164,21 +130,3 @@ function Dashboard({ cases, filteredCases, loading, error, verified, flagged, qu
   </div>;
 }
 
-function RegistryStudio({ onBack }: { onBack: () => void }) {
-  const [saved, setSaved] = useState(false);
-  const mappings = [['Legal name','company.legalName','adidas AG'],['Registration no.','company.vatCode','DE132490588'],['Shareholders','ownership.shareholders[]','2 records'],['Equity %','ownership.equityPercentage','60%']];
-  return <div className="page-container registry-page">
-    <button className="back-link" onClick={onBack}>← Back to command center</button>
-    <div className="registry-hero"><div><div className="eyebrow"><Database size={14} /> NO-CODE CONNECTOR</div><h1>Registry Studio</h1><p>Bring your preferred UBO source. Map its API to a standard entity profile—your Foundry agents stay unchanged.</p></div><div className="connection-health"><span><i /> Live</span><strong>Custom OpenAPI</strong><small>Last checked just now · 186 ms</small></div></div>
-    <div className="registry-layout">
-      <aside className="registry-sidebar"><span>CONNECTORS</span><button className="selected"><div className="provider-icon">OA</div><div><strong>Custom OpenAPI</strong><small>Active provider</small></div><Check size={16} /></button><button><div className="provider-icon muted-logo">CH</div><div><strong>Companies House</strong><small>Ready to connect</small></div></button><button><div className="provider-icon muted-logo">BR</div><div><strong>Bundesregister</strong><small>Ready to connect</small></div></button><button className="add-provider"><Plus size={16} /> Add provider</button></aside>
-      <section className="registry-config">
-        <div className="config-header"><div><h2>Custom OpenAPI</h2><p>Sandbox registry for the hackathon environment</p></div><span className="connected-badge"><i /> Connected</span></div>
-        <div className="config-section"><div className="config-title"><span>1</span><div><h3>Connection</h3><p>Where should the registry agent look?</p></div></div><div className="form-grid"><label className="field full"><span>Base URL</span><div className="input-with-icon"><Globe2 size={16} /><input defaultValue="https://registry.example.com/api/v1" /></div></label><label className="field"><span>Authentication</span><select defaultValue="oauth"><option value="oauth">OAuth 2.0</option><option>API key</option><option>Managed identity</option></select></label><label className="field"><span>Region</span><select><option>European Union</option><option>United Kingdom</option><option>United States</option></select></label></div></div>
-        <div className="config-section"><div className="config-title"><span>2</span><div><h3>Field mapping</h3><p>Translate registry fields into the universal KYB schema.</p></div></div><div className="mapping-table"><div className="mapping-head"><span>VerityOS field</span><span>Registry response</span><span>Sample</span></div>{mappings.map(([a,b,c]) => <div className="mapping-row" key={a}><strong>{a}</strong><code>{b}</code><span>{c}</span></div>)}</div></div>
-        <div className="config-section compact-section"><div className="config-title"><span>3</span><div><h3>Agent routing</h3><p>This connector is available to the UBO Registry Agent.</p></div></div><div className="agent-route"><div className="step-icon"><Sparkles size={18} /></div><div><strong>kyc-ubo-registry-agent</strong><span>Microsoft Foundry · gpt-5.4</span></div><span className="connected-badge"><Check size={13} /> Ready</span></div></div>
-        <div className="config-actions"><button className="secondary-button">Test connection</button><button className="primary-button" onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}>{saved ? <><Check size={17} /> Configuration saved</> : 'Save configuration'}</button></div>
-      </section>
-    </div>
-  </div>;
-}

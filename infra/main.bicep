@@ -40,9 +40,23 @@ param registryApiKey string = ''
 @description('openapi.it account email.')
 param registryEmail string = ''
 
+@description('Operator access code for protected Registry Studio and deployment APIs.')
+@secure()
+param platformAdminKey string = ''
+
+@description('Enable the allowlisted self-service ARM deployment API.')
+param enableSelfServiceDeployment bool = false
+
+@description('Friendly environment label shown in Deployment Center.')
+param deploymentEnvironmentName string = 'production'
+
+@description('Create application data-plane role assignments. Runtime redeployments set this false because Contributor cannot write RBAC.')
+param includeRoleAssignments bool = true
+
 var suffix = uniqueString(resourceGroup().id)
 var cosmosDbName = 'KycCaseManagement'
 var cosmosContainerName = 'Cases'
+var platformContainerName = 'PlatformConfig'
 var storageContainerName = 'kyc-documents'
 
 // ── Log Analytics + Application Insights ─────────────────────────────────────
@@ -126,6 +140,17 @@ resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
   }
 }
 
+resource platformContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDb
+  name: platformContainerName
+  properties: {
+    resource: {
+      id: platformContainerName
+      partitionKey: { paths: ['/id'], kind: 'Hash' }
+    }
+  }
+}
+
 // ── Container Apps environment ───────────────────────────────────────────────
 resource caeEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: '${namePrefix}-env-${suffix}'
@@ -165,6 +190,7 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
       secrets: [
         { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
         { name: 'registry-api-key', value: registryApiKey }
+        { name: 'platform-admin-key', value: platformAdminKey }
         { name: 'appinsights-connection-string', value: appInsights.properties.ConnectionString }
       ]
     }
@@ -181,10 +207,23 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
             { name: 'COSMOS_DATABASE_NAME', value: cosmosDbName }
             { name: 'COSMOS_CONTAINER_NAME', value: cosmosContainerName }
+            { name: 'COSMOS_PLATFORM_CONTAINER_NAME', value: platformContainerName }
             { name: 'STORAGE_ACCOUNT_NAME', value: storage.name }
             { name: 'STORAGE_CONTAINER_NAME', value: storageContainerName }
             { name: 'REGISTRY_API_KEY', secretRef: 'registry-api-key' }
             { name: 'REGISTRY_EMAIL', value: registryEmail }
+            { name: 'REGISTRY_BASE_URL', value: 'https://test.company.openapi.com' }
+            { name: 'REGISTRY_ALLOWED_HOSTS', value: 'test.company.openapi.com,company.openapi.com' }
+            { name: 'PLATFORM_ADMIN_KEY', secretRef: 'platform-admin-key' }
+            { name: 'DEPLOYMENT_ENABLED', value: string(enableSelfServiceDeployment) }
+            { name: 'DEPLOYMENT_ENVIRONMENT_NAME', value: deploymentEnvironmentName }
+            { name: 'DEPLOYMENT_LOCATION', value: location }
+            { name: 'DEPLOYMENT_NAME_PREFIX', value: namePrefix }
+            { name: 'DEPLOYMENT_BACKEND_IMAGE', value: backendImage }
+            { name: 'DEPLOYMENT_FRONTEND_IMAGE', value: frontendImage }
+            { name: 'AZURE_SUBSCRIPTION_ID', value: subscription().subscriptionId }
+            { name: 'AZURE_RESOURCE_GROUP', value: resourceGroup().name }
+            { name: 'AZURE_ACR_NAME', value: acrName }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', secretRef: 'appinsights-connection-string' }
           ]
         }
@@ -238,7 +277,7 @@ resource frontend 'Microsoft.App/containerApps@2024-03-01' = {
 
 // ── RBAC: backend MI → Storage Blob Data Contributor on the storage account ──
 var blobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-resource backendBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource backendBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (includeRoleAssignments) {
   name: guid(storage.id, backend.id, blobContributorRoleId)
   scope: storage
   properties: {
@@ -251,7 +290,7 @@ resource backendBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 // ── RBAC: backend MI → Cosmos DB Built-in Data Contributor (data plane) ──────
 // Required because the account enforces AAD-only (local/key auth disabled).
 var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
-resource backendCosmosDataRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+resource backendCosmosDataRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = if (includeRoleAssignments) {
   parent: cosmos
   name: guid(cosmos.id, backend.id, cosmosDataContributorRoleId)
   properties: {

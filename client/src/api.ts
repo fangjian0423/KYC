@@ -1,5 +1,12 @@
 import axios from 'axios';
-import type { Case, DocType } from './types';
+import type {
+  Case,
+  DeploymentJob,
+  DeploymentProfile,
+  DocType,
+  RegistryConfiguration,
+  RegistryConnectionTest,
+} from './types';
 
 // Empty base URL → requests go to same-origin relative paths (/api/...), which nginx
 // reverse-proxies to the internal backend in production. For local dev, set
@@ -40,4 +47,72 @@ export async function verifyCase(id: string): Promise<Case> {
 /** Public URL of the uploaded document image for a case (served by the backend). */
 export function documentUrl(id: string): string {
   return `${BASE_URL}/api/cases/${id}/document`;
+}
+
+function operatorHeaders(operatorKey: string) {
+  return { 'x-platform-admin-key': operatorKey };
+}
+
+export async function fetchRegistryConfiguration(): Promise<RegistryConfiguration> {
+  const { data } = await api.get<RegistryConfiguration>('/api/platform/registry');
+  return data;
+}
+
+export async function saveRegistryConfiguration(
+  configuration: RegistryConfiguration,
+  operatorKey: string,
+): Promise<RegistryConfiguration> {
+  const { data } = await api.put<RegistryConfiguration>(
+    '/api/platform/registry',
+    configuration,
+    { headers: operatorHeaders(operatorKey) },
+  );
+  return data;
+}
+
+export async function testRegistryConfiguration(
+  configuration: RegistryConfiguration,
+  operatorKey: string,
+): Promise<RegistryConnectionTest> {
+  const { data } = await api.post<RegistryConnectionTest>(
+    '/api/platform/registry/test',
+    { configuration, countryCode: 'DE', registrationNumber: 'DE132490588' },
+    { headers: operatorHeaders(operatorKey) },
+  );
+  return data;
+}
+
+export async function fetchDeploymentProfile(): Promise<DeploymentProfile> {
+  const { data } = await api.get<DeploymentProfile>('/api/platform/deployment-profile');
+  return data;
+}
+
+export async function createDeployment(
+  environmentName: string,
+  operatorKey: string,
+): Promise<DeploymentJob> {
+  const { data } = await api.post<DeploymentJob>(
+    '/api/platform/deployments',
+    { environmentName },
+    { headers: operatorHeaders(operatorKey) },
+  );
+  return data;
+}
+
+export async function fetchDeployment(
+  id: string,
+  operatorKey: string,
+): Promise<DeploymentJob> {
+  const { data } = await api.get<DeploymentJob>(`/api/platform/deployments/${id}`, {
+    headers: operatorHeaders(operatorKey),
+  });
+  return data;
+}
+
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const message = (error.response?.data as { error?: string } | undefined)?.error;
+    return message || fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
 }

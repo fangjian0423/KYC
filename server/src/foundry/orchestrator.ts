@@ -183,7 +183,7 @@ export async function runVerification(caseId: string): Promise<VerificationResul
         {
           'kyc.agent': AGENT_NAMES.ubo,
           'kyc.case_id': caseId,
-          'kyc.registry_configured': isRegistryConfigured(),
+          'kyc.registry_configured': await isRegistryConfigured(),
         },
         async (span) => {
           try {

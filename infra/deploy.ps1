@@ -27,12 +27,18 @@ param(
     # (skip to run the mock pipeline).
     [string]$FoundryResourceId = '/subscriptions/edd0c578-a7c3-4a61-9536-63273eb9bc9b/resourceGroups/jimmy/providers/Microsoft.CognitiveServices/accounts/jimmy-test',
     [string]$RegistryApiKey = '',
-    [string]$RegistryEmail = ''
+    [string]$RegistryEmail = '',
+    [string]$PlatformAdminKey = '',
+    [switch]$EnableSelfServiceDeployment
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $acrName = ($NamePrefix + 'acr' + ((Get-Random -Maximum 99999).ToString())).ToLower()
+
+if ($EnableSelfServiceDeployment -and [string]::IsNullOrWhiteSpace($PlatformAdminKey)) {
+    throw 'PlatformAdminKey is required when EnableSelfServiceDeployment is set.'
+}
 
 # az failures are non-terminating in PowerShell; check $LASTEXITCODE and abort.
 function Assert-LastExit([string]$What) {
@@ -90,6 +96,8 @@ $deployment = az deployment group create `
     -p foundryModelName=$FoundryModelName `
     -p registryApiKey=$RegistryApiKey `
     -p registryEmail=$RegistryEmail `
+    -p platformAdminKey=$PlatformAdminKey `
+    -p enableSelfServiceDeployment=$($EnableSelfServiceDeployment.IsPresent.ToString().ToLowerInvariant()) `
     -o json | ConvertFrom-Json
 Assert-LastExit 'deploy infrastructure'
 
@@ -114,6 +122,17 @@ if ($FoundryResourceId -and $backendPrincipalId) {
         --assignee-principal-type ServicePrincipal `
         --role "Cognitive Services User" `
         --scope $FoundryResourceId | Out-Null
+
+    if ($EnableSelfServiceDeployment) {
+        Write-Host "==> Assigning 'Contributor' to backend identity on the deployment resource group" -ForegroundColor Cyan
+        $resourceGroupId = az group show -n $ResourceGroup --query id -o tsv
+        az role assignment create `
+            --assignee-object-id $backendPrincipalId `
+            --assignee-principal-type ServicePrincipal `
+            --role "Contributor" `
+            --scope $resourceGroupId | Out-Null
+        Assert-LastExit 'assign deployment Contributor role'
+    }
 }
 else {
     Write-Host "!! FoundryResourceId not provided — skipping Foundry RBAC." -ForegroundColor Yellow

@@ -10,6 +10,8 @@
  * once on a 401. The caller never sees or manages a token — set the API key once
  * and forget it.
  */
+import { getRegistryConfiguration } from '../platform/registryConfiguration';
+import type { RegistryConfiguration } from '../platform/types';
 
 interface RegistryConfig {
   apiKey: string;
@@ -19,20 +21,20 @@ interface RegistryConfig {
   scope: string;
 }
 
-function registryConfig(): RegistryConfig {
+async function registryConfig(override?: RegistryConfiguration): Promise<RegistryConfig> {
+  const saved = override ?? await getRegistryConfiguration();
   return {
     apiKey: process.env.REGISTRY_API_KEY ?? '',
     email: process.env.REGISTRY_EMAIL ?? '',
-    tokenEndpoint:
-      process.env.REGISTRY_TOKEN_ENDPOINT ?? 'https://test.oauth.openapi.it/token',
-    baseUrl: process.env.REGISTRY_BASE_URL ?? 'https://test.company.openapi.com',
-    scope: process.env.REGISTRY_SCOPE ?? 'GET:test.company.openapi.com/WW-start',
+    tokenEndpoint: saved.tokenEndpoint,
+    baseUrl: saved.baseUrl,
+    scope: saved.scope,
   };
 }
 
 /** True when an API key + email are configured to reach the live registry. */
-export function isRegistryConfigured(): boolean {
-  const c = registryConfig();
+export async function isRegistryConfigured(): Promise<boolean> {
+  const c = await registryConfig();
   return Boolean(c.apiKey && c.email);
 }
 
@@ -43,6 +45,7 @@ interface CachedToken {
 }
 
 let cached: CachedToken | undefined;
+let cachedConfigurationKey = '';
 
 /** Refresh if we have no token or it expires within this many seconds. */
 const EXPIRY_MARGIN_SECONDS = 60;
@@ -84,6 +87,11 @@ async function fetchToken(cfg: RegistryConfig): Promise<CachedToken> {
 
 /** Return a valid access token, exchanging/refreshing from the API key as needed. */
 async function getToken(cfg: RegistryConfig, forceRefresh = false): Promise<string> {
+  const configurationKey = `${cfg.email}|${cfg.tokenEndpoint}|${cfg.scope}`;
+  if (configurationKey !== cachedConfigurationKey) {
+    cached = undefined;
+    cachedConfigurationKey = configurationKey;
+  }
   const now = Math.floor(Date.now() / 1000);
   if (!forceRefresh && cached && cached.expiresAt - EXPIRY_MARGIN_SECONDS > now) {
     return cached.token;
@@ -102,8 +110,13 @@ export interface RegistryLookup {
  * single automatic refresh-and-retry if the token was rejected (401/403).
  * Returns the parsed registry JSON. Throws on non-auth errors or repeated auth failure.
  */
-export async function queryRegistry(lookup: RegistryLookup): Promise<unknown> {
-  const cfg = registryConfig();
+export async function queryRegistry(
+  lookup: RegistryLookup,
+  configurationOverride?: RegistryConfiguration,
+): Promise<unknown> {
+  const configuration = configurationOverride ?? await getRegistryConfiguration();
+  if (!configuration.enabled) throw new Error('The registry connector is disabled.');
+  const cfg = await registryConfig(configuration);
   if (!cfg.apiKey || !cfg.email) {
     throw new Error('Registry not configured (REGISTRY_API_KEY / REGISTRY_EMAIL missing).');
   }
@@ -131,5 +144,9 @@ export async function queryRegistry(lookup: RegistryLookup): Promise<unknown> {
   if (!res.ok) {
     throw new Error(`Registry lookup failed (${res.status}): ${text.slice(0, 200)}`);
   }
-  return JSON.parse(text);
+  return {
+    provider: configuration.displayName,
+    fieldMappings: configuration.fieldMappings,
+    data: JSON.parse(text),
+  };
 }
