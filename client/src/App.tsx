@@ -60,9 +60,6 @@ export default function App() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold text-white tracking-tight">KYB CaseManager</span>
-            <span className="rounded bg-indigo-500 px-2 py-0.5 text-[10px] font-semibold text-indigo-100 uppercase">
-              PoC
-            </span>
           </div>
           <button
             onClick={() => setView('new')}
