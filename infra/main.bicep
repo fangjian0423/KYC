@@ -41,8 +41,8 @@ param registryApiKey string = ''
 param registryEmail string = ''
 
 var suffix = uniqueString(resourceGroup().id)
-var cosmosDbName = 'kyc'
-var cosmosContainerName = 'cases'
+var cosmosDbName = 'KycCaseManagement'
+var cosmosContainerName = 'Cases'
 var storageContainerName = 'kyc-documents'
 
 // ── Log Analytics + Application Insights ─────────────────────────────────────
@@ -164,7 +164,6 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
       ]
       secrets: [
         { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
-        { name: 'cosmos-connection-string', value: cosmos.listConnectionStrings().connectionStrings[0].connectionString }
         { name: 'registry-api-key', value: registryApiKey }
         { name: 'appinsights-connection-string', value: appInsights.properties.ConnectionString }
       ]
@@ -179,7 +178,9 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'PORT', value: '5000' }
             { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
             { name: 'FOUNDRY_MODEL_NAME', value: foundryModelName }
-            { name: 'COSMOS_CONNECTION_STRING', secretRef: 'cosmos-connection-string' }
+            { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+            { name: 'COSMOS_DATABASE_NAME', value: cosmosDbName }
+            { name: 'COSMOS_CONTAINER_NAME', value: cosmosContainerName }
             { name: 'STORAGE_ACCOUNT_NAME', value: storage.name }
             { name: 'STORAGE_CONTAINER_NAME', value: storageContainerName }
             { name: 'REGISTRY_API_KEY', secretRef: 'registry-api-key' }
@@ -244,6 +245,19 @@ resource backendBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
     principalId: backend.identity.principalId
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', blobContributorRoleId)
     principalType: 'ServicePrincipal'
+  }
+}
+
+// ── RBAC: backend MI → Cosmos DB Built-in Data Contributor (data plane) ──────
+// Required because the account enforces AAD-only (local/key auth disabled).
+var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
+resource backendCosmosDataRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+  parent: cosmos
+  name: guid(cosmos.id, backend.id, cosmosDataContributorRoleId)
+  properties: {
+    roleDefinitionId: '${cosmos.id}/sqlRoleDefinitions/${cosmosDataContributorRoleId}'
+    principalId: backend.identity.principalId
+    scope: cosmos.id
   }
 }
 

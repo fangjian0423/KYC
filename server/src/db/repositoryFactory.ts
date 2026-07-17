@@ -12,7 +12,7 @@ export function getRepository(): AnyRepository {
   if (process.env.USE_MOCK_DB === 'true') {
     console.log('[db] Using in-memory mock repository');
     _repo = new MockCaseRepository();
-  } else if (process.env.COSMOS_CONNECTION_STRING) {
+  } else if (process.env.COSMOS_ENDPOINT || process.env.COSMOS_CONNECTION_STRING) {
     console.log('[db] Using Cosmos DB repository');
     _repo = new CaseRepository();
   } else {
